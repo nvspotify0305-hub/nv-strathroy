@@ -2,23 +2,21 @@
 
 ## Architecture
 - Framework: Vanilla HTML/CSS/JS — single-file app, no build step, no framework
-- Main working file: `strathroy_cash_rec_v27.html`
-- Deploy target: Same file — open directly in Chrome or Edge
-- Hosting: Local file only (file:// protocol)
+- Main working file: `cash_rec_test.html`
+- Deploy target: `index.html`
+- Hosting: GitHub Pages + local working copy
 - Active troubleshooting file: `cash_rec_test.html` for current reconciliation/debug work when the user explicitly scopes changes there
 
 ## Version
 - Current: v27
-- Version location: `strathroy_cash_rec_v27.html` (filename is canonical; title tag shows "v8" and footer/console show "v16" — both are stale display strings)
-- Bump rule: Rename file to next version (e.g. v28) on every significant change; update footer/console strings to match
+- Version strings still drift across files; title/footer/console must be reviewed before any formal release
 - Never change version string without explicit instruction from user
 
 ## Key Rules
 - NEVER rewrite whole files — surgical edits only
-- The working file IS the deploy target — all edits go directly into `strathroy_cash_rec_v27.html`
-- If the user explicitly scopes a fix to `cash_rec_test.html`, do not mirror changes into other files
-- No build step, no npm, no server — edit HTML, refresh browser
-- Use Chrome or Edge — Firefox may block localStorage on file:// protocol
+- `cash_rec_test.html` is the active working file
+- `index.html` is the GitHub Pages publish file and should be replaced from the approved working file on deploy
+- No build step, no npm, no server — edit HTML and deploy by copy + git push
 - All UI primitives and constants are inline in the single HTML file
 - Pre-loaded data (CUSTOMERS, WE_CONFIG, SAMPLE, CT_DAYS, DD_DATA) must never be removed or overwritten by persistence logic — init flags (`_ctLoaded`, `_ddLoaded`, `_boiLoaded`) prevent this
 - Dedup key on Sage import: `acct|date|ref|net` — re-uploads are idempotent
@@ -27,12 +25,14 @@
 - Contra = Sage only — no bank movement, not in App Transfer to HSBC
 - WE ref beats all — WE-prefixed rows always classify as Dublin Cash
 - Daily Summary date-level drill-downs must tolerate adjacent-day timing offsets for CT/DD/Country when the amounts net off across +1 day or weekend-shifted +2 days
-- Branding portability is not guaranteed under `file://` unless logo/favicon assets are embedded or distributed with the exact same relative path structure on every PC
+- GitHub Pages does not solve cross-PC data continuity because the app still uses browser localStorage
+- Cross-PC continuity currently relies on manual JSON backup/import, not automatic sync
+- Extra unexpected columns in Sage export files can break import mapping even when the workbook transactions are otherwise correct
 
 ## Infrastructure
-- Hosting: Local file system — no server, no cloud
+- Hosting: GitHub Pages repo `nvspotify0305-hub/nv-strathroy`
 - Backend: None — purely client-side
-- Local path: `C:\Claude Projects\Strathroy Projects\Cash Recs\strathroy_cash_rec_v27.html`
+- Local path: `C:\Claude Projects\Strathroy Projects\Cash Recs\cash_rec_test.html`
 - External dependencies: Google Fonts CDN, SheetJS v0.18.5 (CDNJS)
 
 ## localStorage Keys
@@ -51,9 +51,12 @@ All data keys use prefix `strathroy_mar2026_`:
 Fallback: `_memStore` in-memory object used when localStorage unavailable.
 
 ## Deploy Command
-```
-No deploy command — open file directly in browser:
-  strathroy_cash_rec_v27.html → Chrome or Edge
+```cmd
+cd "C:\Claude Projects\Strathroy Projects\Cash Recs"
+copy cash_rec_test.html index.html
+git add index.html
+git commit -m "deploy update"
+git push -u origin main
 ```
 
 ## Version Mismatch Rule
@@ -73,8 +76,9 @@ No exceptions.
 - File stays lean — current state only, not a history log
 
 ## Current Focus
-- `cash_rec_test.html` was updated on 2026-04-01 to restore cosmetic adjacent-day timing tolerance in Daily Summary drill-down mismatch reporting after Sage import
-- Logo/favicon consistency across different PCs is still an open deployment/packaging issue, not a confirmed reconciliation-code issue
+- GitHub deployment is now set up and live
+- Manual backup/import is now implemented
+- Next likely check is confirming backup import works on the work PC via the live site
 
 ## Knowledge Base
 Read the relevant file before acting on these domains:
@@ -82,7 +86,7 @@ Read the relevant file before acting on these domains:
 - ROADMAP.md           → feature state, what's built, what's next
 - DEPLOY.md            → any deploy or versioning action
 - FRONTEND_DESIGN.md   → any UI code, components, or styling
-- CLAUDE_4.md          → detailed architecture spec, data model, verified figures, business logic
+- ARCHITECTURE.md      → detailed architecture spec, data model, and business logic
 
 ## Deploy Lock Rule
 

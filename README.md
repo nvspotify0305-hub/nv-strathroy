@@ -11,7 +11,11 @@ Single-file HTML app for cash reconciliation.
 
 - `cash_rec_test.html`: current working file with the latest fixes
 - `index.html`: GitHub Pages publish target
-- `strathroy_cash_rec_v27.html`: older local version kept for reference
+
+## Archive
+
+- `archive/legacy-html/`: older local/reference HTML variants and dated backups
+- `archive/images/`: superseded branding assets kept only for reference
 
 ## GitHub Pages
 
@@ -27,4 +31,3 @@ Single-file HTML app for cash reconciliation.
 - The app uses browser `localStorage`, so hosted data will be separate from `file://` data.
 - Excel import/export depends on the SheetJS CDN.
 - Google Fonts are loaded from Google Fonts CDN.
-

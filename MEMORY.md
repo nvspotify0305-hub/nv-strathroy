@@ -26,7 +26,7 @@
 2026-04-01 — Daily Summary date-level discrepancies can be cosmetic timing shifts; adjacent-day and weekend-shift offsets must be tolerated in drill-down matching instead of being surfaced as hard mismatches.
 2026-04-01 — Local `file://` portability remains fragile for branding. Logo/favicon consistency across PCs requires either embedded assets or guaranteed identical relative `images` paths on every machine.
 2026-04-01 — A Sage workbook with an extra unexpected column can break import mapping even when the underlying transactions are correct. If Sage totals look wrong but the raw workbook matches the app tabs, inspect the workbook shape first.
-2026-04-01 — `cash_rec_test.html` contains the newer Sage upload ownership fix (`_sessionId`-based clear/re-import behaviour). `strathroy_cash_rec_v27.html` does not.
+2026-04-01 — `cash_rec_test.html` contains the newer Sage upload ownership fix (`_sessionId`-based clear/re-import behaviour). The archived `strathroy_cash_rec_v27.html` does not.
 2026-04-01 — GitHub Pages for this project now publishes from `index.html` in repo `nvspotify0305-hub/nv-strathroy`.
 2026-04-01 — GitHub Pages does not solve cross-PC data continuity by itself because the app still stores state in browser `localStorage`; hosted origin data is separate from `file://` data.
 2026-04-02 — Manual backup/import is now implemented as the project's cross-PC workflow: export one JSON backup file from one machine, import it on the other machine, restore into that browser's `localStorage`, then reload.
@@ -34,3 +34,4 @@
 2026-04-02 — Footer left-hand branding now explicitly keeps the version label together with `Strathroy Dairy · Cash Rec`; footer currently shows `v16`.
 2026-04-02 — Active app variants now use the official logo asset at `images/Logo Official.jpg` instead of the generated placeholder wordmark.
 2026-04-02 — Branding portability is improved but not fully solved: active files now share one relative image path, so consistency still depends on shipping the `images` folder with the app.
+2026-04-02 — Legacy HTML variants and superseded branding assets were moved into `archive/` so the repo root stays focused on active app files and core project docs.

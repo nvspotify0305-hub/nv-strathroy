@@ -4,7 +4,7 @@
 - Latest working file is `cash_rec_test.html`
 - GitHub Pages publish target is `index.html`
 - Live repo is `nvspotify0305-hub/nv-strathroy`
-- Legacy local reference file remains `strathroy_cash_rec_v27.html`
+- Legacy local reference file now lives at `archive/legacy-html/strathroy_cash_rec_v27.html`
 
 ### What Was Completed
 - Added manual `Export Backup` and `Import Backup` flow to move app data between PCs
@@ -12,7 +12,9 @@
 - Import restores that JSON into the destination browser `localStorage` and reloads the app
 - Footer left side now keeps `Strathroy Dairy · Cash Rec · v16`
 - Replaced the generated wordmark/logo image in active app files with `images/Logo Official.jpg`
-- Updated `strathroy_cash_rec_v27.html` scripted `LOGO_URL` to use the official logo asset too
+- Updated the archived `strathroy_cash_rec_v27.html` scripted `LOGO_URL` to use the official logo asset too
+- Archived legacy HTML variants and the superseded generated logo out of the repo root for a cleaner project layout
+- Removed the stray `gcm-diagnose.log` diagnostic file from the project root
 - Approved UI polish was already live; backup/import changes were then deployed too
 
 ### Deploy State
@@ -24,10 +26,10 @@
 ### Important Notes
 - Hosted GitHub Pages data is still separate from local `file://` data
 - Backup/import is now the supported cross-PC workflow for this app
-- `cash_rec_test.html` still contains the newer upload-ownership fix (`_sessionId`) that `strathroy_cash_rec_v27.html` does not
+- `cash_rec_test.html` still contains the newer upload-ownership fix (`_sessionId`) that the archived `strathroy_cash_rec_v27.html` does not
 - Footer/version strings still drift across the project overall; footer currently shows `v16` while filename/title still indicate `v27`
-- Active branding now points at `images/Logo Official.jpg` in `index.html`, `cash_rec_test.html`, `cash_rec_design_test.html`, and `strathroy_cash_rec_v27.html`
-- The dated backup file still references the old generated logo and was left unchanged on purpose
+- Active branding now points at `images/Logo Official.jpg` in `index.html` and `cash_rec_test.html`
+- Legacy variants now live under `archive/legacy-html/`; the root is intentionally limited to active app files and core docs
 
 ### Next Recommended Work
 - On the work PC, open the live site and test importing the exported backup JSON

@@ -19,7 +19,7 @@ Before coding, understand the context and commit to a clear aesthetic direction:
 
 - **Aesthetic**: Light, data-dense, utilitarian-refined — tight spacing, clear hierarchy, monospace numbers
 - **Existing fonts**:
-  - `DM Serif Display` — logo/brand header only (`strathroy_cash_rec_v27.html`, `.brand-name`)
+- `DM Serif Display` — logo/brand header only (`.brand-name`)
   - `DM Sans` — all UI text, labels, buttons, body (weights: 300, 400, 500, 600)
   - `DM Mono` — all financial amounts, numeric data, table values (weights: 400, 500)
 - **Color system**: CSS custom properties on `:root` — **always use variables, never hardcode hex**

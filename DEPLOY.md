@@ -16,7 +16,7 @@ No server, no npm, no deployment pipeline.
 |------|---------|
 | `cash_rec_test.html` | Current working file with latest fixes |
 | `index.html` | GitHub Pages deploy target |
-| `strathroy_cash_rec_v27.html` | Legacy local version retained for reference |
+| `archive/legacy-html/` | Legacy local/reference HTML files retained outside the root |
 
 When deploying, copy the latest approved working file into `index.html`.
 
@@ -33,14 +33,37 @@ The published filename on GitHub Pages should stay `index.html`.
 
 ---
 
-## Deploy Steps
+## Standard Deploy — Windows CMD
 
-1. Confirm the latest approved app file.
-2. Copy it to `index.html`.
-3. Commit the changes.
-4. Push to GitHub.
-5. In GitHub Pages settings, publish from the root of the default branch.
-6. Verify the live URL.
+```cmd
+cd "C:\Claude Projects\Strathroy Projects\Cash Recs"
+copy cash_rec_test.html index.html
+git add cash_rec_test.html index.html
+git commit -m "deploy update"
+git push -u origin main
+```
+
+If other deploy docs changed in the same session, include them in the same commit:
+
+```cmd
+git add index.html DEPLOY.md README.md MEMORY.md ROADMAP.md SESSION_NOTES.md CLAUDE.md
+git commit -m "deploy update"
+git push -u origin main
+```
+
+## First-Time Terminal Auth / Push Fixes
+
+If terminal push is not authenticated:
+
+```cmd
+git credential-manager github login
+```
+
+If Git blocks the repo as unsafe for the current Windows user:
+
+```cmd
+git config --global --add safe.directory "C:/Claude Projects/Strathroy Projects/Cash Recs"
+```
 
 ---
 
@@ -48,10 +71,22 @@ The published filename on GitHub Pages should stay `index.html`.
 
 | Key | Value |
 |-----|-------|
-| Repo | To be created |
-| Local branch | Default branch |
-| Remote branch | Default branch |
-| Live URL | GitHub Pages URL |
+| Repo | `nvspotify0305-hub/nv-strathroy` |
+| Local branch | `main` |
+| Remote branch | `main` |
+| Live URL | `https://nvspotify0305-hub.github.io/nv-strathroy/` |
+
+## GitHub Pages Settings
+
+Repo settings path:
+
+`https://github.com/nvspotify0305-hub/nv-strathroy/settings/pages`
+
+Required settings:
+- Repository visibility: `Public` on the current plan
+- Source: `Deploy from a branch`
+- Branch: `main`
+- Folder: `/ (root)`
 
 ---
 
@@ -76,6 +111,7 @@ The published filename on GitHub Pages should stay `index.html`.
 
 | Warning | Cause | Action |
 |---------|-------|--------|
+| GitHub Pages unavailable | Repo is private on current plan | Make repo public or upgrade |
 | localStorage data differs from local file copy | Different origin between `file://` and hosted site | Expect separate stored data per origin |
 | SheetJS CDN failure | No internet connection | .xlsx import/export will fail; core app still works |
 | Google Fonts not loading | No internet connection | App uses system sans-serif fallback |
@@ -85,11 +121,14 @@ The published filename on GitHub Pages should stay `index.html`.
 ## Deploy Checklist
 
 - [ ] Latest approved file copied into `index.html`
+- [ ] `cash_rec_test.html` and `index.html` kept in sync
 - [ ] Title / footer / console strings reviewed
 - [ ] `index.html` opens correctly locally before push
 - [ ] `images/` folder included
 - [ ] GitHub Pages published from root branch
 - [ ] Live URL smoke-tested on another PC
+- [ ] Remember hosted site uses different `localStorage` from local `file://`
+- [ ] If cross-PC continuity is needed, remind user to use `Export Backup` / `Import Backup`
 
 ---
 
