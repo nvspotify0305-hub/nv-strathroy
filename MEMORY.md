@@ -35,3 +35,5 @@
 2026-04-02 — Active app variants now use the official logo asset at `images/Logo Official.jpg` instead of the generated placeholder wordmark.
 2026-04-02 — Branding portability is improved but not fully solved: active files now share one relative image path, so consistency still depends on shipping the `images` folder with the app.
 2026-04-02 — Legacy HTML variants and superseded branding assets were moved into `archive/` so the repo root stays focused on active app files and core project docs.
+2026-04-02 — Cash Rec now includes a client-side privacy lock screen in `cash_rec_test.html` and `index.html` with a manual `Lock` button and 10-minute inactivity auto-lock.
+2026-04-02 — Current Cash Rec lock password is `Pass01`; it is hardcoded client-side and should be treated as convenience privacy only, not true secure authentication.

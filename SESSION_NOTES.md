@@ -16,6 +16,9 @@
 - Archived legacy HTML variants and the superseded generated logo out of the repo root for a cleaner project layout
 - Removed the stray `gcm-diagnose.log` diagnostic file from the project root
 - Approved UI polish was already live; backup/import changes were then deployed too
+- Added a branded lock screen to `cash_rec_test.html` and `index.html` with a subtle `S` watermark background
+- Added manual top-bar `Lock` control plus automatic re-lock after 10 minutes of inactivity
+- Set the current lock password to `Pass01`
 
 ### Deploy State
 - `cash_rec_test.html` was copied into `index.html`
@@ -30,9 +33,11 @@
 - Footer/version strings still drift across the project overall; footer currently shows `v16` while filename/title still indicate `v27`
 - Active branding now points at `images/Logo Official.jpg` in `index.html` and `cash_rec_test.html`
 - Legacy variants now live under `archive/legacy-html/`; the root is intentionally limited to active app files and core docs
+- The new privacy lock is intended to stop casual viewing on a shared machine, not to provide full secure authentication
 
 ### Next Recommended Work
 - On the work PC, open the live site and test importing the exported backup JSON
+- On both PCs, verify the lock screen opens immediately and that `Pass01` unlocks correctly
 - If manual backup/import proves annoying, revisit Supabase as the next free-only upgrade path
 
 ### Files Most Relevant Next Session
