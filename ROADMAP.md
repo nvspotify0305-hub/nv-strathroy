@@ -5,8 +5,9 @@
 ---
 
 ## Current Version: v27
-**File:** `strathroy_cash_rec_v27.html`
-**Deployed:** Local file — open in Chrome/Edge
+**Working File:** `cash_rec_test.html`
+**Publish File:** `index.html`
+**Deployed:** GitHub repo pushed; backup/import deploy live on `main` via commit `846ecf5`
 **Architecture:** Single-file vanilla HTML/CSS/JS app with localStorage persistence and SheetJS for .xlsx import/export
 
 ---
@@ -31,7 +32,10 @@
 | Clear by date range | Complete | Prevents stale rows |
 | Reset All Sage Data | Complete | Full Sage data wipe |
 | Daily Summary adjacent-day tolerance | Partial | Restored in `cash_rec_test.html` drill-down only; verify against duplicate Sage test file |
-| Branding portability across PCs | Partial | Local `file://` branding still inconsistent across machines |
+| GitHub Pages deployment | Complete | Repo pushed and live from `main` root |
+| Branding portability across PCs | Partial | Official logo is now standardised to `images/Logo Official.jpg` in active files, but consistency still depends on the bundled `images` folder and version strings still need manual review |
+| Backup / import portability | Complete | Manual JSON transfer workflow now implemented for cross-PC use |
+| Cross-PC data sync | Partial | Manual backup/import exists; no live cloud sync |
 
 ---
 
@@ -46,9 +50,8 @@
 
 ## In Progress
 
-- Verify current Sage import reconciliation behaviour in `cash_rec_test.html` against the user's duplicate/source-of-truth test file
-- Confirm that Daily Summary date-level mismatches only surface true issues after adjacent-day timing offsets are collapsed
-- Stabilise branding portability for logo/favicon across different PCs under local `file://` usage
+- Verify backup import on the user's work PC against the live GitHub Pages site
+- Confirm whether manual backup/import is sufficient or whether Supabase is still wanted later
 
 ---
 
@@ -57,8 +60,8 @@
 | Phase | Goal | Status |
 |-------|------|--------|
 | 1 — Finish app | Complete all functional features | In progress |
-| 2 — Design polish | Branding, logo, visual improvements | Not started |
-| 3 — GitHub deploy | Publish to GitHub Pages, set up collaborator access | Not started |
+| 2 — Design polish | Branding, logo, visual improvements | In progress |
+| 3 — GitHub deploy | Publish to GitHub Pages, set up collaborator access | In progress |
 
 ---
 
@@ -68,6 +71,7 @@
 ### Phase 1 — Finish App (functional)
 | Item | Detail |
 |------|--------|
+| Data export / import | Completed on 2026-04-02; keep for future enhancements only |
 | Verify Daily Summary timing matches | Confirm CT/DD/Country drill-downs honour adjacent-day timing tolerance on real Sage test files |
 | Month-end balance checks | HSBC statement reconciliation |
 | New month workflow | New localStorage prefix, carry-forward balances |
@@ -79,15 +83,15 @@
 ### Phase 2 — Design Polish
 | Item | Detail |
 |------|--------|
-| Logo / branding | Finalise logo/fav strategy so branding is consistent across different PCs and not dependent on local path/cached assets |
+| Logo / branding | Official logo is now swapped into active files; next step is to finalise favicon/embed strategy so branding is not dependent on local path/cached assets |
 | Visual improvements | Review spacing, typography, colour use across all tabs |
 
 ### Phase 3 — GitHub
 | Item | Detail |
 |------|--------|
-| GitHub Pages deploy | Publish single HTML file to GitHub Pages |
+| GitHub Pages deploy | Live now; smoke-test on another PC after import |
 | Collaborator access | One read-only collaborator (view only, no edit permissions) |
-| Multi-device access | Both users access via GitHub Pages URL |
+| Multi-device access | Hosted URL works, but data still needs export/import or cloud sync |
 
 ---
 
@@ -114,7 +118,8 @@
 
 ## Deployment Rules
 
-- Bump version on every deploy: rename file to next vNN, update footer/console strings
-- Working file: `strathroy_cash_rec_v27.html`
-- Deploy target: Same file — open in Chrome/Edge
-- Deploy: No command — just open the file
+- Working file: `cash_rec_test.html`
+- Deploy target: `index.html`
+- GitHub Pages branch/folder: `main` / `(root)`
+- Hosted deploy does not carry `file://` localStorage forward
+- Cross-PC workflow is now `Export Backup` -> move JSON -> `Import Backup`
