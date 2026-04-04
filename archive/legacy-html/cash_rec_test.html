@@ -784,7 +784,9 @@ footer{
     <button class="m-btn" id="prevMonth">◄</button>
     <div class="m-disp" id="monthDisp">Mar 2026</div>
     <button class="m-btn" id="nextMonth">►</button>
+    <button class="btn btn-ghost btn-xs" id="currentPeriodBtn" type="button">Current</button>
     <span class="badge badge-open" id="statusBadge">Open</span>
+    <button class="btn btn-green btn-xs hidden" id="openPeriodBtn" type="button">Open Period</button>
     <button class="close-btn" id="closeMonthBtn">Close Month</button>
     <button class="settings-gear" id="settingsBtn" onclick="toggleSettings()" title="Settings">⚙</button>
     <button class="top-lock-btn" id="lockBtn" type="button" title="Lock this app">Lock</button>
@@ -1333,14 +1335,14 @@ footer{
             </tr>
             <tr>
               <td class="lbl">Inv EURO <span style="font-size:10px;color:var(--ink-lt);">(daybook — manual)</span></td>
-              <td><input class="inp-inline" id="rec-inv-sage" value="0.00" oninput="recalcRec()" style="display:block;margin-left:auto;text-align:right;" placeholder="0.00"></td>
-              <td><input class="inp-inline" id="rec-inv-hsbc" value="0.00" oninput="recalcRec()" style="display:block;margin-left:auto;text-align:right;" placeholder="0.00"></td>
+              <td><input class="inp-inline" id="rec-inv-sage" value="0.00" oninput="saveMonthEndManualInputs();recalcRec()" style="display:block;margin-left:auto;text-align:right;" placeholder="0.00"></td>
+              <td><input class="inp-inline" id="rec-inv-hsbc" value="0.00" oninput="saveMonthEndManualInputs();recalcRec()" style="display:block;margin-left:auto;text-align:right;" placeholder="0.00"></td>
               <td class="diff-ok" id="rec-inv-diff">0.00</td>
             </tr>
             <tr>
               <td class="lbl">Credits <span style="font-size:10px;color:var(--ink-lt);">(daybook — manual)</span></td>
-              <td><input class="inp-inline" id="rec-cr-sage" value="0.00" oninput="recalcRec()" style="display:block;margin-left:auto;text-align:right;" placeholder="0.00"></td>
-              <td><input class="inp-inline" id="rec-cr-hsbc" value="0.00" oninput="recalcRec()" style="display:block;margin-left:auto;text-align:right;" placeholder="0.00"></td>
+              <td><input class="inp-inline" id="rec-cr-sage" value="0.00" oninput="saveMonthEndManualInputs();recalcRec()" style="display:block;margin-left:auto;text-align:right;" placeholder="0.00"></td>
+              <td><input class="inp-inline" id="rec-cr-hsbc" value="0.00" oninput="saveMonthEndManualInputs();recalcRec()" style="display:block;margin-left:auto;text-align:right;" placeholder="0.00"></td>
               <td class="diff-ok" id="rec-cr-diff">0.00</td>
             </tr>
             <tr class="tot-row">
@@ -1355,7 +1357,7 @@ footer{
             </tr>
             <tr>
               <td class="lbl">Debtors (Sage)</td>
-              <td><input class="inp-inline" id="rec-debtors" value="4994236.67" oninput="recalcRec()" style="display:block;margin-left:auto;text-align:right;"></td>
+              <td><input class="inp-inline" id="rec-debtors" value="4994236.67" oninput="saveMonthEndManualInputs();recalcRec()" style="display:block;margin-left:auto;text-align:right;"></td>
               <td></td>
               <td class="diff-ok" id="rec-debtors-diff">0.00 ✓</td>
             </tr>
@@ -1376,7 +1378,7 @@ footer{
     <div class="card-body" style="padding:0;">
       <table class="hist-tbl">
         <thead><tr><th>Month</th><th>Debtors</th><th>CT</th><th>DD</th><th>Factors chq</th><th>Discount</th><th>Diff</th><th>Status</th></tr></thead>
-        <tbody>
+        <tbody id="historyRows">
           <tr style="opacity:.6;"><td>Mar 2026 <span class="badge badge-open" style="font-size:9px;">Open</span></td><td>4,994,237</td><td>2,328,460</td><td>427,798</td><td>120,038</td><td>0</td><td class="hist-ok">—</td><td><span class="badge badge-open" style="font-size:9px;">Open</span></td></tr>
           <tr><td>Feb 2026</td><td>4,625,409</td><td>4,341,770</td><td>504,009</td><td>125,962</td><td>137,270</td><td class="hist-ok">0.00</td><td><span class="badge badge-closed" style="font-size:9px;">Closed</span></td></tr>
           <tr><td>Jan 2026</td><td>5,815,572</td><td>4,026,990</td><td>536,606</td><td>162,443</td><td>145,794</td><td class="hist-ok">0.00</td><td><span class="badge badge-closed" style="font-size:9px;">Closed</span></td></tr>
@@ -1396,8 +1398,8 @@ footer{
 <!-- CLOSE MONTH MODAL -->
 <div class="modal-ov" id="closeModal">
   <div class="modal">
-    <div class="modal-title">Close March 2026?</div>
-    <div class="modal-body">Month locked and read-only. Closing balance carries to April as opening balance.</div>
+    <div class="modal-title" id="closeModalTitle">Close March 2026?</div>
+    <div class="modal-body" id="closeModalBody">Month locked and read-only. Closing balance carries to April as opening balance.</div>
     <div class="modal-detail">
       <div class="modal-dr"><span class="modal-dl">Debtors diff</span><span class="modal-dv" style="color:var(--green);">€0.00 ✓</span></div>
       <div class="modal-dr"><span class="modal-dl">Closing balance</span><span class="modal-dv">€4,994,236.67</span></div>
@@ -1739,13 +1741,63 @@ const COUNTRY_DATA=[{"date": "02 Mar", "ref": "LATM CR 906566", "rep": "WEX", "a
 // ══ MONTH NAV ══
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let curMonth=2,curYear=2026;
+let periodsState=null;
 document.getElementById('yr').textContent=new Date().getFullYear();
+function periodKeyFromParts(year, monthIndex){
+  return `${year}-${String(monthIndex + 1).padStart(2,'0')}`;
+}
+function parsePeriodKey(key){
+  const [year, month] = String(key).split('-').map(Number);
+  return { year, monthIndex: month - 1 };
+}
+function periodLabelFromKey(key){
+  const { year, monthIndex } = parsePeriodKey(key);
+  return `${MONTHS[monthIndex]} ${year}`;
+}
+function getNextPeriodKey(key){
+  let { year, monthIndex } = parsePeriodKey(key);
+  monthIndex += 1;
+  if (monthIndex > 11) { monthIndex = 0; year += 1; }
+  return periodKeyFromParts(year, monthIndex);
+}
+function getPeriodKeysSorted(){
+  return Object.keys(periodsState?.periods || {}).sort();
+}
+function getViewedPeriod(){
+  return periodsState?.periods?.[periodsState.viewedKey] || null;
+}
+function getActivePeriod(){
+  return periodsState?.periods?.[periodsState.activeKey] || null;
+}
+function setMonthCursorFromKey(key){
+  const { year, monthIndex } = parsePeriodKey(key);
+  curYear = year;
+  curMonth = monthIndex;
+}
 function refreshMonthDisplay(){
-  document.getElementById('monthDisp').textContent=MONTHS[curMonth]+' '+curYear;
+  const viewed = getViewedPeriod();
+  const label = viewed ? viewed.label : (MONTHS[curMonth]+' '+curYear);
+  document.getElementById('monthDisp').textContent = label;
   renderDashboard();
 }
-document.getElementById('prevMonth').onclick=()=>{if(--curMonth<0){curMonth=11;curYear--;} refreshMonthDisplay();};
-document.getElementById('nextMonth').onclick=()=>{if(++curMonth>11){curMonth=0;curYear++;} refreshMonthDisplay();};
+function viewPeriod(key){
+  if (!periodsState?.periods?.[key]) return;
+  periodsState.viewedKey = key;
+  setMonthCursorFromKey(key);
+  applyViewedPeriodToUI();
+  persistPeriods();
+}
+document.getElementById('prevMonth').onclick=()=>{
+  const keys = getPeriodKeysSorted();
+  const idx = keys.indexOf(periodsState.viewedKey);
+  if (idx > 0) viewPeriod(keys[idx - 1]);
+};
+document.getElementById('nextMonth').onclick=()=>{
+  const keys = getPeriodKeysSorted();
+  const idx = keys.indexOf(periodsState.viewedKey);
+  if (idx >= 0 && idx < keys.length - 1) viewPeriod(keys[idx + 1]);
+};
+document.getElementById('currentPeriodBtn').onclick=()=>viewPeriod(periodsState.activeKey);
 
 // ══ SCREEN NAV ══
 function showScreen(screen){
@@ -1785,16 +1837,35 @@ document.querySelectorAll('.modal-ov').forEach(ov=>ov.addEventListener('click',e
 document.getElementById('closeMonthBtn').onclick=()=>showModal('closeModal');
 
 function confirmClose(){
+  const period = getViewedPeriod();
+  if (!period) return;
   hideModal('closeModal');
-  document.getElementById('statusBadge').className='badge badge-closed';
-  document.getElementById('statusBadge').textContent='Closed';
-  document.getElementById('closeMonthBtn').textContent='Reopen';
-  document.getElementById('closeMonthBtn').onclick=()=>{
-    document.getElementById('statusBadge').className='badge badge-open';
-    document.getElementById('statusBadge').textContent='Open';
-    document.getElementById('closeMonthBtn').textContent='Close Month';
-    document.getElementById('closeMonthBtn').onclick=()=>showModal('closeModal');
-  };
+  const wasActivePeriod = period.key === periodsState.activeKey;
+
+  captureViewedPeriodManualFields();
+  period.base = captureRecBaseFromUI();
+  period.snapshot = captureRecSnapshotFromUI();
+  period.status = 'closed';
+  period.closedAt = new Date().toISOString();
+
+  if (wasActivePeriod) {
+    const nextKey = getNextPeriodKey(period.key);
+    if (!periodsState.periods[nextKey]) {
+      periodsState.periods[nextKey] = makePeriodRecord(nextKey, 0, 'future');
+    } else {
+      resetFuturePeriodRecord(periodsState.periods[nextKey], 0);
+    }
+    periodsState.periods[nextKey].openingFromPeriodKey = period.key;
+    periodsState.viewedKey = nextKey;
+    withSuspendedPeriodCapture(() => {
+      resetMonthScopedData();
+      applyViewedPeriodToUI();
+    });
+    persistPeriods({ capture: false });
+    return;
+  }
+  persistPeriods({ capture: false });
+  applyViewedPeriodToUI();
 }
 
 // ══ BOI ROWS ══
@@ -2835,6 +2906,13 @@ function renderRecentActivity() {
 }
 
 function recalcRec(){
+  const viewedPeriod = getViewedPeriod();
+  if (viewedPeriod && viewedPeriod.status !== 'open') {
+    captureViewedPeriodManualFields();
+    renderStoredPeriod(viewedPeriod);
+    persistPeriods();
+    return;
+  }
   const fmtN = n => {
     const abs = Math.abs(n).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
     return n < 0 ? '-' + abs : abs;
@@ -2930,6 +3008,13 @@ function recalcRec(){
     const ok = Math.abs(debtDiff) < 0.005;
     debtEl.textContent = ok ? '0.00 ✓' : (debtDiff>0?'+':'') + fmtN(debtDiff) + ' ⚠';
     debtEl.className = ok ? 'diff-ok' : 'diff-bad';
+  }
+  if (viewedPeriod) {
+    captureViewedPeriodManualFields();
+    viewedPeriod.snapshot = captureRecSnapshotFromUI();
+    appSettings.monthEndManual = appSettings.monthEndManual || {};
+    appSettings.monthEndManual[viewedPeriod.key] = { ...(viewedPeriod.manual || {}) };
+    saveSettings();
   }
 }
 
@@ -3895,6 +3980,10 @@ function renderSageImport() {
   const logEntries = document.getElementById('sage-upload-entries');
   if (sageUploads.length === 0) {
     logWrap.style.display = 'none';
+    window._sageTotals = null;
+    resetRecImportedFields();
+    renderDailySummary();
+    recalcRec();
   } else {
     logWrap.style.display = '';
     logEntries.innerHTML = sageUploads.map(s => `
@@ -4566,12 +4655,16 @@ const SETTINGS_DEFAULTS = {
   openingBalance: 4625409.06,
   monthLabel: 'Mar 2026',
   sageCols: 'Account,Type,Ref,Date,NetValue',
-  customRules: []  // [{pattern, matchtype, type, note}]
+  customRules: [],  // [{pattern, matchtype, type, note}]
+  monthEndManual: {},
+  activePeriodKey: '2026-03',
+  viewedPeriodKey: '2026-03'
 };
 
 let appSettings = {...SETTINGS_DEFAULTS};
 const LOCK_PASSWORD = 'Pass01';
 const LOCK_IDLE_MS = 10 * 60 * 1000;
+const LOCK_SESSION_KEY = 'strathroy_cash_rec_unlock_v1';
 let lockTimer = null;
 let appUnlocked = false;
 
@@ -4622,6 +4715,7 @@ function unlockApp() {
   }
   if (lockMessage) lockMessage.textContent = '';
   appUnlocked = true;
+  try { sessionStorage.setItem(LOCK_SESSION_KEY, '1'); } catch(e) {}
   document.body.classList.remove('app-locked');
   if (lockScreen) {
     lockScreen.classList.remove('show');
@@ -4631,7 +4725,617 @@ function unlockApp() {
 }
 
 function lockApp(message='Locked manually.') {
+  try { sessionStorage.removeItem(LOCK_SESSION_KEY); } catch(e) {}
   showLockScreen(message);
+}
+
+const PERIOD_MANUAL_FIELDS = ['rec-inv-sage','rec-inv-hsbc','rec-cr-sage','rec-cr-hsbc','rec-debtors','rec-clos-note'];
+let suspendPeriodCapture = false;
+
+function getFieldNumber(id, fallback = 0) {
+  const el = document.getElementById(id);
+  if (!el) return fallback;
+  if ('value' in el) return parseFloat(String(el.value).replace(/,/g,'')) || fallback;
+  return parseFloat(String(el.textContent).replace(/[^0-9.\-]/g,'')) || fallback;
+}
+function setFieldValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = value;
+}
+function setTextMoney(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = Number(value || 0).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function setDiffDisplay(id, a, b) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const diff = (a || 0) - (b || 0);
+  const ok = Math.abs(diff) < 0.005;
+  const abs = Math.abs(diff).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  el.textContent = ok ? '0.00' : ((diff > 0 ? '+' : '-') + abs);
+  el.className = ok ? 'diff-ok' : 'diff-bad';
+}
+function setDebtorsDiffDisplay(value) {
+  const el = document.getElementById('rec-debtors-diff');
+  if (!el) return;
+  const ok = Math.abs(value) < 0.005;
+  const abs = Math.abs(value).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  el.textContent = ok ? '0.00 ✓' : ((value > 0 ? '+' : '-') + abs + ' ⚠');
+  el.className = ok ? 'diff-ok' : 'diff-bad';
+}
+function makePeriodRecord(key, openingBalance = 0, status = 'open') {
+  return {
+    key,
+    label: periodLabelFromKey(key),
+    status,
+    openingBalance: Number(openingBalance || 0),
+    manual: {
+      invSage: 0,
+      invHsbc: 0,
+      crSage: 0,
+      crHsbc: 0,
+      debtors: Number(openingBalance || 0),
+      closNote: ''
+    },
+    manualInputs: {
+      recInvSage: '0.00',
+      recInvHsbc: '0.00',
+      recCrSage: '0.00',
+      recCrHsbc: '0.00',
+      recDebtors: Number(openingBalance || 0).toFixed(2),
+      recClosNote: ''
+    },
+    base: null,
+    snapshot: null,
+    closedAt: null
+  };
+}
+function getStoredManualForPeriod(key) {
+  return (appSettings.monthEndManual && appSettings.monthEndManual[key]) || null;
+}
+function loadMonthEndInputStore() {
+  return dbLoad(DB_KEYS.monthEndInputs) || {};
+}
+function saveMonthEndInputStore(store) {
+  dbSave(DB_KEYS.monthEndInputs, store || {});
+}
+function getStoredInputsForPeriod(key) {
+  const store = loadMonthEndInputStore();
+  return store[key] || null;
+}
+function setStoredInputsForPeriod(key, values) {
+  const store = loadMonthEndInputStore();
+  store[key] = {...(store[key] || {}), ...(values || {})};
+  saveMonthEndInputStore(store);
+}
+function clearStoredInputsForPeriod(key, openingBalance = 0) {
+  const store = loadMonthEndInputStore();
+  store[key] = {
+    recInvSage: '0.00',
+    recInvHsbc: '0.00',
+    recCrSage: '0.00',
+    recCrHsbc: '0.00',
+    recDebtors: String(Number(openingBalance || 0).toFixed(2)),
+    recClosNote: ''
+  };
+  saveMonthEndInputStore(store);
+}
+function setStoredManualForPeriod(key, manual) {
+  appSettings.monthEndManual = appSettings.monthEndManual || {};
+  appSettings.monthEndManual[key] = {...manual};
+}
+function clearStoredManualForPeriod(key, openingBalance = 0) {
+  setStoredManualForPeriod(key, {
+    invSage: 0,
+    invHsbc: 0,
+    crSage: 0,
+    crHsbc: 0,
+    debtors: Number(openingBalance || 0),
+    closNote: ''
+  });
+  clearStoredInputsForPeriod(key, openingBalance);
+}
+function getEffectivePeriodInputs(period) {
+  if (period?.manualInputs) return { ...period.manualInputs };
+  return {
+    ...(getStoredInputsForPeriod(period?.key) || {})
+  };
+}
+function withSuspendedPeriodCapture(fn) {
+  suspendPeriodCapture = true;
+  try {
+    return fn();
+  } finally {
+    suspendPeriodCapture = false;
+  }
+}
+function getEffectivePeriodManual(period) {
+  return {
+    ...(period?.manual || {}),
+    ...(getStoredManualForPeriod(period?.key) || {})
+  };
+}
+function ensureFuturePeriods(count = 2) {
+  if (!periodsState?.activeKey) return;
+  let key = periodsState.activeKey;
+  for (let i = 0; i < count; i += 1) {
+    key = getNextPeriodKey(key);
+    if (!periodsState.periods[key]) {
+      periodsState.periods[key] = makePeriodRecord(key, 0, 'future');
+    }
+  }
+}
+function captureRecBaseFromUI() {
+  return {
+    opSage: getFieldNumber('rec-op-sage'),
+    opHsbc: getFieldNumber('rec-op-hsbc'),
+    ctSage: getFieldNumber('rec-ct-sage'),
+    ctHsbc: getFieldNumber('rec-ct-hsbc'),
+    ddSage: getFieldNumber('rec-dd-sage'),
+    ddHsbc: getFieldNumber('rec-dd-hsbc'),
+    facSage: getFieldNumber('rec-fac-sage'),
+    facHsbc: getFieldNumber('rec-fac-hsbc'),
+    discSage: getFieldNumber('rec-disc-sage')
+  };
+}
+function captureRecSnapshotFromUI() {
+  return {
+    debtors: getFieldNumber('rec-debtors'),
+    ct: getFieldNumber('rec-ct-sage'),
+    dd: getFieldNumber('rec-dd-sage'),
+    factors: getFieldNumber('rec-fac-sage'),
+    discount: getFieldNumber('rec-disc-sage'),
+    diff: getFieldNumber('rec-debtors-diff'),
+    closingSage: getFieldNumber('rec-clos-sage'),
+    closingHsbc: getFieldNumber('rec-clos-hsbc')
+  };
+}
+function captureViewedPeriodManualFields() {
+  if (suspendPeriodCapture) return;
+  const period = getViewedPeriod();
+  if (!period || period.status === 'future') return;
+  const manual = {
+    invSage: getFieldNumber('rec-inv-sage'),
+    invHsbc: getFieldNumber('rec-inv-hsbc'),
+    crSage: getFieldNumber('rec-cr-sage'),
+    crHsbc: getFieldNumber('rec-cr-hsbc'),
+    debtors: getFieldNumber('rec-debtors'),
+    closNote: document.getElementById('rec-clos-note')?.value || ''
+  };
+  period.manual = manual;
+  period.manualInputs = {
+    recInvSage: document.getElementById('rec-inv-sage')?.value || '0.00',
+    recInvHsbc: document.getElementById('rec-inv-hsbc')?.value || '0.00',
+    recCrSage: document.getElementById('rec-cr-sage')?.value || '0.00',
+    recCrHsbc: document.getElementById('rec-cr-hsbc')?.value || '0.00',
+    recDebtors: document.getElementById('rec-debtors')?.value || String(manual.debtors || 0),
+    recClosNote: document.getElementById('rec-clos-note')?.value || ''
+  };
+  setStoredManualForPeriod(period.key, manual);
+  setStoredInputsForPeriod(period.key, period.manualInputs);
+  if (period.key === periodsState.activeKey && period.status === 'open') {
+    period.openingBalance = getFieldNumber('rec-op-sage');
+  }
+}
+function saveMonthEndManualInputs() {
+  if (!periodsState) return;
+  const period = getViewedPeriod();
+  if (!period || period.status !== 'open') return;
+  captureViewedPeriodManualFields();
+  dbSave(DB_KEYS.monthEndManual, appSettings.monthEndManual || {});
+  dbSave(DB_KEYS.periods, periodsState);
+  saveSettings();
+}
+function persistPeriods(options = {}) {
+  if (options.capture !== false) captureViewedPeriodManualFields();
+  appSettings.activePeriodKey = periodsState.activeKey;
+  appSettings.viewedPeriodKey = periodsState.viewedKey;
+  ensureFuturePeriods();
+  dbSave(DB_KEYS.monthEndManual, appSettings.monthEndManual || {});
+  dbSave(DB_KEYS.periods, periodsState);
+  saveSettings();
+}
+function resetRecImportedFields() {
+  ['rec-ct-sage','rec-ct-hsbc','rec-dd-sage','rec-dd-hsbc','rec-fac-sage','rec-fac-hsbc','rec-disc-sage','rec-disc-hsbc'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '0.00';
+  });
+  ['rec-ct-diff','rec-dd-diff','rec-fac-diff','rec-disc-diff'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.textContent = '0.00';
+      el.className = 'diff-ok';
+    }
+  });
+  const note = document.getElementById('rec-charges-note');
+  if (note) note.style.display = 'none';
+}
+function resetMonthEndManualFields(openingBalance = 0) {
+  setFieldValue('rec-inv-sage', 0);
+  setFieldValue('rec-inv-hsbc', 0);
+  setFieldValue('rec-cr-sage', 0);
+  setFieldValue('rec-cr-hsbc', 0);
+  setFieldValue('rec-debtors', Number(openingBalance || 0));
+  setFieldValue('rec-clos-note', '');
+  ['rec-inv-diff','rec-cr-diff','rec-debtors-diff','rec-clos-diff'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.textContent = id === 'rec-debtors-diff' ? '0.00 ✓' : '0.00';
+      el.className = 'diff-ok';
+    }
+  });
+  setTextMoney('rec-clos-sage', openingBalance);
+  setTextMoney('rec-clos-hsbc', openingBalance);
+}
+function resetMonthlySummaryInputs() {
+  appSettings.bankCharges = 0;
+  appSettings.creditInterest = 0;
+  appSettings.bankCheckHsbc002 = '';
+  appSettings.bankCheckBoi005 = '';
+  setFieldValue('adj-charges', '0.00');
+  setFieldValue('adj-interest', '0.00');
+  setFieldValue('cfg-bank-charges', '0.00');
+  setFieldValue('cfg-credit-interest', '0.00');
+  setFieldValue('bchk-hsbc-input', '');
+  setFieldValue('bchk-boi-input', '');
+  saveSettings();
+}
+function getCarryForwardOpeningBalance(period) {
+  if (!period) return 0;
+  if (period.status !== 'future') return Number(period.openingBalance || 0);
+  const sourceKey = period.openingFromPeriodKey;
+  const sourcePeriod = sourceKey ? periodsState?.periods?.[sourceKey] : null;
+  return Number(sourcePeriod?.snapshot?.closingSage || period.openingBalance || 0);
+}
+function resetMonthScopedData() {
+  ctDays.length = 0;
+  ddData.length = 0;
+  boiData.length = 0;
+  sageUploads = [];
+  sageAllRows = [];
+  typoQueue = [];
+  ctPending = null;
+  dismissedAlerts.clear();
+  snoozedAlerts.clear();
+  Object.keys(WE_CONFIG).forEach(k => delete WE_CONFIG[k]);
+  Object.keys(SAMPLE).forEach(k => delete SAMPLE[k]);
+  window._sageTotals = null;
+  dbSave(DB_KEYS.ctDays, ctDays);
+  dbSave(DB_KEYS.ddData, ddData);
+  dbSave(DB_KEYS.boiData, boiData);
+  dbSave(DB_KEYS.weConfig, WE_CONFIG);
+  dbSave(DB_KEYS.sample, SAMPLE);
+  dbSave(DB_KEYS.sageUploads, sageUploads);
+  dbSave(DB_KEYS.sageAllRows, sageAllRows);
+  dbSave(DB_KEYS.typoQueue, typoQueue);
+  dbSave(DB_KEYS.alerts, {
+    dismissed: [...dismissedAlerts],
+    snoozed: [...snoozedAlerts]
+  });
+  resetMonthlySummaryInputs();
+  resetRecImportedFields();
+  resetMonthEndManualFields(0);
+  renderBOI();
+  renderDD();
+  renderCT();
+  buildDCBlocks();
+  renderSageImport();
+  renderDailySummary();
+  renderDashboard();
+}
+function resetFuturePeriodRecord(period, openingBalance = 0) {
+  if (!period) return;
+  period.status = 'future';
+  period.openingBalance = Number(openingBalance || 0);
+  period.base = null;
+  period.snapshot = null;
+  period.closedAt = null;
+  period.manual = {
+    invSage: 0,
+    invHsbc: 0,
+    crSage: 0,
+    crHsbc: 0,
+    debtors: Number(openingBalance || 0),
+    closNote: ''
+  };
+  period.manualInputs = {
+    recInvSage: '0.00',
+    recInvHsbc: '0.00',
+    recCrSage: '0.00',
+    recCrHsbc: '0.00',
+    recDebtors: Number(openingBalance || 0).toFixed(2),
+    recClosNote: ''
+  };
+  clearStoredManualForPeriod(period.key, openingBalance);
+}
+function sanitizePeriodsState() {
+  if (!periodsState?.periods) return;
+  const keys = Object.keys(periodsState.periods).sort();
+  const openKeys = keys.filter((key) => periodsState.periods[key]?.status === 'open');
+  let activeKey = openKeys.length ? openKeys[0] : periodsState.activeKey;
+  if (!activeKey || !periodsState.periods[activeKey]) {
+    activeKey = periodsState.activeKey || keys[0];
+  }
+  if (!activeKey || !periodsState.periods[activeKey]) return;
+  periodsState.activeKey = activeKey;
+  keys.forEach((key) => {
+    const period = periodsState.periods[key];
+    if (!period) return;
+    period.label = periodLabelFromKey(key);
+    if (key < activeKey && period.status === 'future') {
+      period.status = 'closed';
+    }
+    if (key !== activeKey && period.status === 'open') {
+      if (key > activeKey) {
+        resetFuturePeriodRecord(period, 0);
+      } else {
+        period.status = 'closed';
+      }
+    }
+    if (key > activeKey) {
+      resetFuturePeriodRecord(period, 0);
+      if (!period.openingFromPeriodKey) {
+        period.openingFromPeriodKey = key === getNextPeriodKey(activeKey) ? activeKey : null;
+      }
+    }
+  });
+  if (!periodsState.periods[periodsState.viewedKey] || periodsState.periods[periodsState.viewedKey]?.status === 'future') {
+    periodsState.viewedKey = activeKey;
+  }
+}
+function setPeriodFieldsLocked(locked) {
+  PERIOD_MANUAL_FIELDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.readOnly = !!locked;
+    el.dataset.periodLocked = locked ? '1' : '0';
+    el.style.background = locked ? 'var(--bg)' : '';
+    el.style.cursor = locked ? 'not-allowed' : '';
+  });
+  const openingInput = document.getElementById('cfg-opening-bal');
+  if (openingInput) openingInput.readOnly = !!locked;
+  const monthInput = document.getElementById('cfg-month-label');
+  if (monthInput) monthInput.readOnly = true;
+}
+function showPeriodLockedMessage() {
+  alert('Period closed. Reopen the period if you need to amend these numbers.');
+}
+function showFuturePeriodMessage() {
+  alert('Future period. It is not open yet.');
+}
+function openViewedFuturePeriod() {
+  const period = getViewedPeriod();
+  if (!period || period.status !== 'future') return;
+  const sourceKey = period.openingFromPeriodKey;
+  const sourcePeriod = sourceKey ? periodsState.periods[sourceKey] : null;
+  const openingBalance = sourcePeriod?.snapshot?.closingSage || 0;
+  period.status = 'open';
+  period.openingBalance = openingBalance;
+  period.base = null;
+  period.snapshot = null;
+  period.closedAt = null;
+  period.manual = {
+    invSage: 0,
+    invHsbc: 0,
+    crSage: 0,
+    crHsbc: 0,
+    debtors: openingBalance,
+    closNote: ''
+  };
+  period.manualInputs = {
+    recInvSage: '0.00',
+    recInvHsbc: '0.00',
+    recCrSage: '0.00',
+    recCrHsbc: '0.00',
+    recDebtors: Number(openingBalance || 0).toFixed(2),
+    recClosNote: ''
+  };
+  periodsState.activeKey = period.key;
+  clearStoredManualForPeriod(period.key, openingBalance);
+  withSuspendedPeriodCapture(() => {
+    resetMonthScopedData();
+    resetMonthEndManualFields(openingBalance);
+    setTextMoney('rec-op-sage', openingBalance);
+    setTextMoney('rec-op-hsbc', openingBalance);
+  });
+  persistPeriods({ capture: false });
+  applyViewedPeriodToUI();
+}
+function handleLockedFieldAttempt(event) {
+  const period = getViewedPeriod();
+  if (!period || period.status === 'open') return;
+  event.preventDefault();
+  event.stopPropagation();
+  const el = event.currentTarget;
+  if (el && typeof el.blur === 'function') el.blur();
+  if (period.status === 'future') showFuturePeriodMessage();
+  else showPeriodLockedMessage();
+}
+function renderStoredPeriod(period) {
+  const base = period.base || {
+    opSage: period.openingBalance,
+    opHsbc: period.openingBalance,
+    ctSage: 0, ctHsbc: 0,
+    ddSage: 0, ddHsbc: 0,
+    facSage: 0, facHsbc: 0,
+    discSage: 0
+  };
+  const manual = getEffectivePeriodManual(period);
+  const invSage = Number(manual.invSage || 0);
+  const invHsbc = Number(manual.invHsbc || 0);
+  const crSage = Number(manual.crSage || 0);
+  const crHsbc = Number(manual.crHsbc || 0);
+  const debtors = Number(manual.debtors || 0);
+  const closSage = base.opSage + base.facSage + base.discSage + base.ddSage + base.ctSage + invSage + crSage;
+  const closHsbc = base.opHsbc + base.facHsbc + base.discSage + base.ddHsbc + base.ctHsbc + invHsbc + crHsbc;
+
+  setTextMoney('rec-op-sage', base.opSage);
+  setTextMoney('rec-op-hsbc', base.opHsbc);
+  setTextMoney('rec-ct-sage', base.ctSage);
+  setTextMoney('rec-ct-hsbc', base.ctHsbc);
+  setTextMoney('rec-dd-sage', base.ddSage);
+  setTextMoney('rec-dd-hsbc', base.ddHsbc);
+  setTextMoney('rec-fac-sage', base.facSage);
+  setTextMoney('rec-fac-hsbc', base.facHsbc);
+  setTextMoney('rec-disc-sage', base.discSage);
+  setTextMoney('rec-disc-hsbc', base.discSage);
+  setTextMoney('rec-clos-sage', closSage);
+  setTextMoney('rec-clos-hsbc', closHsbc);
+  setDiffDisplay('rec-op-diff', base.opHsbc, base.opSage);
+  setDiffDisplay('rec-ct-diff', base.ctHsbc, base.ctSage);
+  setDiffDisplay('rec-dd-diff', base.ddHsbc, base.ddSage);
+  setDiffDisplay('rec-fac-diff', base.facHsbc, base.facSage);
+  setDiffDisplay('rec-disc-diff', base.discSage, base.discSage);
+  setDiffDisplay('rec-inv-diff', invHsbc, invSage);
+  setDiffDisplay('rec-cr-diff', crHsbc, crSage);
+  setDiffDisplay('rec-clos-diff', closHsbc, closSage);
+  setDebtorsDiffDisplay(debtors - closSage);
+}
+function updateStatusUI(period) {
+  const badge = document.getElementById('statusBadge');
+  const btn = document.getElementById('closeMonthBtn');
+  const openBtn = document.getElementById('openPeriodBtn');
+  if (!badge || !btn || !openBtn) return;
+  const isClosed = period.status === 'closed';
+  const isFuture = period.status === 'future';
+  badge.className = (isClosed || isFuture) ? 'badge badge-closed' : 'badge badge-open';
+  badge.textContent = isClosed ? 'Closed' : (isFuture ? 'Future' : 'Open');
+  openBtn.classList.toggle('hidden', !isFuture);
+  openBtn.onclick = isFuture ? openViewedFuturePeriod : null;
+  btn.textContent = isClosed ? 'Reopen Period' : (isFuture ? 'Future Period' : 'Close Month');
+  btn.disabled = isFuture;
+  btn.style.opacity = isFuture ? '0.65' : '1';
+  btn.style.cursor = isFuture ? 'default' : 'pointer';
+  btn.onclick = isClosed
+    ? () => {
+        if (!confirm(`${period.label} is closed. Reopen this period and allow amendments?`)) return;
+        period.status = 'open';
+        applyViewedPeriodToUI();
+        persistPeriods();
+      }
+    : (isFuture ? null : () => showModal('closeModal'));
+}
+function updateCloseModalCopy(period) {
+  const title = document.getElementById('closeModalTitle');
+  const body = document.getElementById('closeModalBody');
+  if (title) title.textContent = `Close ${period.label}?`;
+  if (body) body.textContent = `Period becomes read-only. Closing balance carries to ${periodLabelFromKey(getNextPeriodKey(period.key))} as opening balance.`;
+}
+function renderHistoryTable() {
+  const tbody = document.getElementById('historyRows');
+  if (!tbody || !periodsState) return;
+  const fmt = (n) => Number(n || 0).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const rows = getPeriodKeysSorted().slice().reverse().map((key) => {
+    const period = periodsState.periods[key];
+    const snap = period.snapshot || {};
+    const isViewed = key === periodsState.viewedKey;
+    const badge = period.status === 'closed' || period.status === 'future' ? 'badge-closed' : 'badge-open';
+    const status = period.status === 'closed' ? 'Closed' : (period.status === 'future' ? 'Future' : 'Open');
+    return `<tr data-period-key="${key}"${isViewed ? ' style="background:var(--navy-pale);"' : ''}>
+      <td>${period.label}</td>
+      <td>${fmt(snap.debtors)}</td>
+      <td>${fmt(snap.ct)}</td>
+      <td>${fmt(snap.dd)}</td>
+      <td>${fmt(snap.factors)}</td>
+      <td>${fmt(snap.discount)}</td>
+      <td class="${Math.abs(Number(snap.diff || 0)) < 0.005 ? 'hist-ok' : ''}">${snap.diff === undefined ? '—' : fmt(snap.diff)}</td>
+      <td><span class="badge ${badge}" style="font-size:9px;">${status}</span></td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = rows || '<tr><td colspan="8">No month history yet.</td></tr>';
+  tbody.querySelectorAll('tr[data-period-key]').forEach((row) => {
+    row.addEventListener('click', () => viewPeriod(row.dataset.periodKey));
+  });
+}
+function applyViewedPeriodToUI() {
+  const period = getViewedPeriod();
+  if (!period) return;
+  period.label = periodLabelFromKey(period.key);
+  appSettings.monthLabel = period.label;
+  const effectiveOpening = getCarryForwardOpeningBalance(period);
+  appSettings.openingBalance = effectiveOpening;
+  setMonthCursorFromKey(period.key);
+  refreshMonthDisplay();
+  const manual = getEffectivePeriodManual(period);
+  const storedInputs = getEffectivePeriodInputs(period);
+  const visibleManual = period.status === 'future'
+    ? {invSage:0,invHsbc:0,crSage:0,crHsbc:0,debtors:0,closNote:''}
+    : manual;
+  withSuspendedPeriodCapture(() => {
+    setFieldValue('rec-inv-sage', period.status === 'future' ? 0 : (storedInputs.recInvSage ?? visibleManual.invSage ?? 0));
+    setFieldValue('rec-inv-hsbc', period.status === 'future' ? 0 : (storedInputs.recInvHsbc ?? visibleManual.invHsbc ?? 0));
+    setFieldValue('rec-cr-sage', period.status === 'future' ? 0 : (storedInputs.recCrSage ?? visibleManual.crSage ?? 0));
+    setFieldValue('rec-cr-hsbc', period.status === 'future' ? 0 : (storedInputs.recCrHsbc ?? visibleManual.crHsbc ?? 0));
+    setFieldValue('rec-debtors', period.status === 'future' ? 0 : (storedInputs.recDebtors ?? visibleManual.debtors ?? effectiveOpening));
+    setFieldValue('rec-clos-note', period.status === 'future' ? '' : (storedInputs.recClosNote ?? visibleManual.closNote ?? ''));
+    setFieldValue('cfg-opening-bal', effectiveOpening);
+    setFieldValue('cfg-month-label', period.label);
+  });
+  updateStatusUI(period);
+  updateCloseModalCopy(period);
+  const isLivePeriod = period.key === periodsState.activeKey && period.status === 'open';
+  setPeriodFieldsLocked(period.status !== 'open');
+  if (isLivePeriod) {
+    setTextMoney('rec-op-sage', effectiveOpening);
+    setTextMoney('rec-op-hsbc', effectiveOpening);
+    recalcRec();
+  } else if (period.status === 'future') {
+    resetRecImportedFields();
+    resetMonthEndManualFields(0);
+    setTextMoney('rec-op-sage', effectiveOpening);
+    setTextMoney('rec-op-hsbc', effectiveOpening);
+  } else {
+    renderStoredPeriod(period);
+  }
+  renderHistoryTable();
+}
+function initialisePeriods() {
+  const savedMonthEndManual = dbLoad(DB_KEYS.monthEndManual);
+  if (savedMonthEndManual !== null) {
+    appSettings.monthEndManual = savedMonthEndManual || {};
+  }
+  const saved = dbLoad(DB_KEYS.periods);
+  if (saved?.periods && Object.keys(saved.periods).length) {
+    periodsState = saved;
+  } else {
+    const initialKey = appSettings.activePeriodKey || periodKeyFromParts(curYear, curMonth);
+    periodsState = {
+      activeKey: initialKey,
+      viewedKey: appSettings.viewedPeriodKey || initialKey,
+      periods: {
+        [initialKey]: makePeriodRecord(initialKey, appSettings.openingBalance)
+      }
+    };
+  }
+  if (!periodsState.periods[periodsState.activeKey]) {
+    periodsState.periods[periodsState.activeKey] = makePeriodRecord(periodsState.activeKey, appSettings.openingBalance);
+  }
+  if (!periodsState.periods[periodsState.viewedKey]) periodsState.viewedKey = periodsState.activeKey;
+  const storedManual = appSettings.monthEndManual || {};
+  Object.keys(storedManual).forEach((key) => {
+    if (!periodsState.periods[key]) return;
+    periodsState.periods[key].manual = {
+      ...(periodsState.periods[key].manual || {}),
+      ...storedManual[key]
+    };
+  });
+  Object.keys(periodsState.periods).forEach((key) => {
+    const period = periodsState.periods[key];
+    if (!period.manualInputs) {
+      period.manualInputs = getStoredInputsForPeriod(key) || {
+        recInvSage: String(Number(period.manual?.invSage || 0).toFixed(2)),
+        recInvHsbc: String(Number(period.manual?.invHsbc || 0).toFixed(2)),
+        recCrSage: String(Number(period.manual?.crSage || 0).toFixed(2)),
+        recCrHsbc: String(Number(period.manual?.crHsbc || 0).toFixed(2)),
+        recDebtors: String(Number(period.manual?.debtors || period.openingBalance || 0).toFixed(2)),
+        recClosNote: period.manual?.closNote || ''
+      };
+    }
+  });
+  ensureFuturePeriods();
+  sanitizePeriodsState();
 }
 
 function loadSettings() {
@@ -4715,23 +5419,31 @@ function saveBankCheckInputs() {
 function saveMonthEndNote() {
   const noteEl = document.getElementById('rec-clos-note');
   appSettings.closingDiffNote = noteEl ? noteEl.value : '';
-  saveSettings();
+  captureViewedPeriodManualFields();
+  persistPeriods();
 }
 
 function savePeriod() {
-  appSettings.openingBalance = parseFloat(document.getElementById('cfg-opening-bal').value) || 0;
-  appSettings.monthLabel = document.getElementById('cfg-month-label').value.trim() || 'Mar 2026';
+  const period = getViewedPeriod();
+  if (!period) return;
+  if (period.status === 'closed') {
+    showPeriodLockedMessage();
+    return;
+  }
+  period.openingBalance = parseFloat(document.getElementById('cfg-opening-bal').value) || 0;
+  appSettings.openingBalance = period.openingBalance;
+  appSettings.monthLabel = period.label;
   appSettings.sageCols = document.getElementById('cfg-sage-cols').value.trim();
   // Update opening balance in Section 2
   const opSage = document.getElementById('rec-op-sage');
   const opHsbc = document.getElementById('rec-op-hsbc');
   const fmt = n => n.toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
-  if (opSage) opSage.textContent = fmt(appSettings.openingBalance);
-  if (opHsbc) opHsbc.textContent = fmt(appSettings.openingBalance);
+  if (opSage) opSage.textContent = fmt(period.openingBalance);
+  if (opHsbc) opHsbc.textContent = fmt(period.openingBalance);
   // Update month display
   const disp = document.getElementById('monthDisp');
-  if (disp) disp.textContent = appSettings.monthLabel;
-  saveSettings();
+  if (disp) disp.textContent = period.label;
+  persistPeriods();
   recalcRec();
 }
 
@@ -4830,6 +5542,9 @@ const DB_KEYS = {
   sageAllRows:  DB_PREFIX + 'sageAllRows',
   typoQueue:    DB_PREFIX + 'typoQueue',
   alerts:       DB_PREFIX + 'alerts',
+  periods:      DB_PREFIX + 'periods',
+  monthEndManual: DB_PREFIX + 'monthEndManual',
+  monthEndInputs: DB_PREFIX + 'monthEndInputs',
 };
 
 // In-memory fallback when localStorage is unavailable (file:// protocol, private browsing)
@@ -4903,7 +5618,8 @@ function exportBackup() {
       sageUploads: dbLoad(DB_KEYS.sageUploads),
       sageAllRows: dbLoad(DB_KEYS.sageAllRows),
       typoQueue: dbLoad(DB_KEYS.typoQueue),
-      alerts: dbLoad(DB_KEYS.alerts)
+      alerts: dbLoad(DB_KEYS.alerts),
+      periods: dbLoad(DB_KEYS.periods)
     }
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -4950,7 +5666,8 @@ function importBackupFromFile(file) {
         [keyMap.sageUploads || DB_KEYS.sageUploads, payload.data.sageUploads],
         [keyMap.sageAllRows || DB_KEYS.sageAllRows, payload.data.sageAllRows],
         [keyMap.typoQueue || DB_KEYS.typoQueue, payload.data.typoQueue],
-        [keyMap.alerts || DB_KEYS.alerts, payload.data.alerts]
+        [keyMap.alerts || DB_KEYS.alerts, payload.data.alerts],
+        [keyMap.periods || DB_KEYS.periods, payload.data.periods]
       ];
       writes.forEach(([key, value]) => {
         if (typeof value === 'undefined') {
@@ -4971,6 +5688,11 @@ function importBackupFromFile(file) {
 
 function persistAll() {
   renderDashboard();
+  if (periodsState) {
+    captureViewedPeriodManualFields();
+    dbSave(DB_KEYS.periods, periodsState);
+  }
+  dbSave(DB_KEYS.monthEndManual, appSettings.monthEndManual || {});
   dbSave(DB_KEYS.ctDays, ctDays);
   dbSave(DB_KEYS.ddData, ddData);
   dbSave(DB_KEYS.boiData, boiData);
@@ -5022,7 +5744,7 @@ function loadPersistedData() {
 
   // WE_CONFIG — replace entirely so deleted batches don't re-appear from hardcoded constants
   const savedWE = dbLoad(DB_KEYS.weConfig);
-  if (savedWE) {
+  if (savedWE !== null) {
     // Remove all keys from the hardcoded constant first
     Object.keys(WE_CONFIG).forEach(k => delete WE_CONFIG[k]);
     // Then restore exactly what was saved
@@ -5032,7 +5754,7 @@ function loadPersistedData() {
 
   // SAMPLE — replace entirely for same reason
   const savedSample = dbLoad(DB_KEYS.sample);
-  if (savedSample) {
+  if (savedSample !== null) {
     Object.keys(SAMPLE).forEach(k => delete SAMPLE[k]);
     Object.keys(savedSample).forEach(k => { SAMPLE[k] = savedSample[k]; });
     console.log('Loaded SAMPLE for:', Object.keys(savedSample).join(', '));
@@ -5040,7 +5762,7 @@ function loadPersistedData() {
 
   // Sage import state
   const savedUploads = dbLoad(DB_KEYS.sageUploads);
-  if (savedUploads && savedUploads.length) {
+  if (savedUploads !== null) {
     sageUploads.length = 0;
     savedUploads.forEach(s => {
       sageUploads.push({
@@ -5054,7 +5776,7 @@ function loadPersistedData() {
   }
 
   const savedRows = dbLoad(DB_KEYS.sageAllRows);
-  if (savedRows && savedRows.length) {
+  if (savedRows !== null) {
     sageAllRows.length = 0;
     savedRows.forEach(r => {
       sageAllRows.push({
@@ -5068,7 +5790,7 @@ function loadPersistedData() {
 
   // Typo queue
   const savedTypo = dbLoad(DB_KEYS.typoQueue);
-  if (savedTypo && savedTypo.length) {
+  if (savedTypo !== null) {
     typoQueue.length = 0;
     savedTypo.forEach(t => typoQueue.push(t));
   }
@@ -5098,12 +5820,43 @@ document.getElementById('lockPassword')?.addEventListener('keydown', (event) => 
     unlockApp();
   }
 });
+PERIOD_MANUAL_FIELDS.forEach((id) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('mousedown', handleLockedFieldAttempt);
+  el.addEventListener('touchstart', handleLockedFieldAttempt, { passive: false });
+  el.addEventListener('keydown', (event) => {
+    if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') {
+      handleLockedFieldAttempt(event);
+    }
+  });
+  el.addEventListener('input', () => {
+    const period = getViewedPeriod();
+    if (!period || period.status !== 'open') return;
+    captureViewedPeriodManualFields();
+    if (period.key !== periodsState.activeKey) {
+      renderStoredPeriod(period);
+    } else {
+      recalcRec();
+    }
+    persistPeriods();
+  });
+});
 ['mousemove','mousedown','keydown','touchstart','scroll'].forEach((evt) => {
   document.addEventListener(evt, markAppActivity, { passive: true });
+});
+window.addEventListener('beforeunload', () => {
+  if (!periodsState) return;
+  persistPeriods();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'hidden' || !periodsState) return;
+  persistPeriods();
 });
 
 loadSettings();
 loadPersistedData();
+initialisePeriods();
 initBOI();
 initDD();
 initCT();
@@ -5112,12 +5865,24 @@ renderBOI();
 renderDD();
 renderCT();
 buildDCBlocks();
-if(sageUploads.length) renderSageImport();
-recalcRec();
+renderSageImport();
+applyViewedPeriodToUI();
 detectCTMissingDays();
 renderDashboard();
 renderDailySummary();
-showLockScreen();
+try {
+  if (sessionStorage.getItem(LOCK_SESSION_KEY) === '1') {
+    appUnlocked = true;
+    document.body.classList.remove('app-locked');
+    document.getElementById('lockScreen')?.classList.remove('show');
+    document.getElementById('lockScreen')?.setAttribute('aria-hidden', 'true');
+    scheduleAutoLock();
+  } else {
+    showLockScreen();
+  }
+} catch(e) {
+  showLockScreen();
+}
 console.log('v16 loaded. CT days:', ctDays.length, '| DD rows:', ddData.length, '| BOI rows:', boiData.length);
 </script>
 </body>

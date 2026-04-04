@@ -1,48 +1,52 @@
-## Codex Session — 2026-04-02
+## Codex Session — 2026-04-04
 
-### Current State
-- Latest working file is `cash_rec_test.html`
-- GitHub Pages publish target is `index.html`
-- Live repo is `nvspotify0305-hub/nv-strathroy`
-- Legacy local reference file now lives at `archive/legacy-html/strathroy_cash_rec_v27.html`
+### Active File
+- Active working file: `cash_rec_period_full_test_v5.html`
+- Publish/live file still untouched: `index.html`
 
-### What Was Completed
-- Added manual `Export Backup` and `Import Backup` flow to move app data between PCs
-- Backup writes one JSON file containing the app's saved browser state
-- Import restores that JSON into the destination browser `localStorage` and reloads the app
-- Footer left side now keeps `Strathroy Dairy · Cash Rec · v16`
-- Replaced the generated wordmark/logo image in active app files with `images/Logo Official.jpg`
-- Updated the archived `strathroy_cash_rec_v27.html` scripted `LOGO_URL` to use the official logo asset too
-- Archived legacy HTML variants and the superseded generated logo out of the repo root for a cleaner project layout
-- Removed the stray `gcm-diagnose.log` diagnostic file from the project root
-- Approved UI polish was already live; backup/import changes were then deployed too
-- Added a branded lock screen to `cash_rec_test.html` and `index.html` with a subtle `S` watermark background
-- Added manual top-bar `Lock` control plus automatic re-lock after 10 minutes of inactivity
-- Set the current lock password to `Pass01`
+### Current Status
+- Month archive flow is working in `v5`
+- March can be reopened, amended, refreshed, and re-closed
+- April retains its own entries after March is amended and re-closed
+- Current-month entries now survive refresh in April
+- Dublin Cash bulk paste now aligns with real account rows while keeping greyed rows in sequence
+- Dublin Cash footer now follows office process:
+  - `Total` app-calculated
+  - `Opening float` manual
+  - `Office total` manual
+  - `Diff = (Total + Opening float) - Office total`
+- History now shows:
+  - closed months from saved summaries
+  - current viewed month from live values
+  - real `Diff` when one exists
 
-### Deploy State
-- `cash_rec_test.html` was copied into `index.html`
-- GitHub push completed on `main`
-- Latest backup/import deploy commit: `846ecf5` (`Add backup export and import flow`)
-- Earlier UI polish deploy commit remains `7ec6195` (`Polish finance UI styling`)
+### Confirmed Working
+- Lock screen no longer returns on same-session refresh
+- Backup/import includes period archive state
+- Manual Month End fields persist on refresh
+- `HSBC CT Adj` persists and affects HSBC/Manual closing only
+- Fresh new months clear stale prior-month carry-over
+- Reopen state now survives refresh
+- April can legitimately carry different opening balances for:
+  - Sage
+  - HSBC / Manual
 
-### Important Notes
-- Hosted GitHub Pages data is still separate from local `file://` data
-- Backup/import is now the supported cross-PC workflow for this app
-- `cash_rec_test.html` still contains the newer upload-ownership fix (`_sessionId`) that the archived `strathroy_cash_rec_v27.html` does not
-- Footer/version strings still drift across the project overall; footer currently shows `v16` while filename/title still indicate `v27`
-- Active branding now points at `images/Logo Official.jpg` in `index.html` and `cash_rec_test.html`
-- Legacy variants now live under `archive/legacy-html/`; the root is intentionally limited to active app files and core docs
-- The new privacy lock is intended to stop casual viewing on a shared machine, not to provide full secure authentication
+### Important Carry-Forward Rule
+- New month opening balances come from prior month closing balances
+- Sage opening carries from prior `Clos balance` Sage
+- HSBC / Manual opening carries from prior `Clos balance` HSBC / Manual
+- Do not use `Debtors (Sage)` manual input as carry-forward source
 
-### Next Recommended Work
-- On the work PC, open the live site and test importing the exported backup JSON
-- On both PCs, verify the lock screen opens immediately and that `Pass01` unlocks correctly
-- If manual backup/import proves annoying, revisit Supabase as the next free-only upgrade path
+### History Rule
+- Closed rows use saved archived summaries
+- Current row uses live month values from the currently viewed period
+- `Diff` should display if there is a real difference; otherwise show `✓`
 
-### Files Most Relevant Next Session
-- `cash_rec_test.html`
-- `index.html`
-- `SESSION_NOTES.md`
-- `MEMORY.md`
-- `ROADMAP.md`
+### File Layout
+- Keep `cash_rec_period_full_test_v5.html` at repo root as working file
+- Keep snapshot rollback files at repo root
+- Archive obsolete non-snapshot trial HTML files under `archive/legacy-html`
+
+### Next Sensible Step
+1. Promote `v5` into `index.html` when ready to go live
+2. Commit and push only after final smoke check

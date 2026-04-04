@@ -37,3 +37,21 @@
 2026-04-02 — Legacy HTML variants and superseded branding assets were moved into `archive/` so the repo root stays focused on active app files and core project docs.
 2026-04-02 — Cash Rec now includes a client-side privacy lock screen in `cash_rec_test.html` and `index.html` with a manual `Lock` button and 10-minute inactivity auto-lock.
 2026-04-02 — Current Cash Rec lock password is `Pass01`; it is hardcoded client-side and should be treated as convenience privacy only, not true secure authentication.
+2026-04-03 — `index.html` is the only safe working/live file and must remain untouched while month-period logic is unresolved.
+2026-04-03 — `cash_rec_test.html` is no longer a safe base for month-period work; it contains a broken partial period experiment.
+2026-04-03 — `cash_rec_period_test.html` contains useful trial work, but it is still not production-ready and should not be treated as the current safe working base.
+2026-04-03 — A partial month-end snapshot model is not sufficient for this app. The correct requirement is a full per-period archive that restores all tabs and imported/live month data when switching back to a closed month.
+2026-04-03 — The required month model is: closed March preserves full March state, open April starts clean except for carried opening balance, and toolbar month switching must swap the full month dataset rather than just Debtors Reconciliation values.
+2026-04-03 — `cash_rec_period_full_test.html` was created as a fresh rebuild base copied from stable `index.html`; this is the correct file to continue the month-period rebuild in the next session.
+2026-04-03 — Required reopen rule: if March is reopened, amended, and closed again, the March archive must be replaced with the amended full-month state and April opening balance must refresh from the new March closing balance.
+2026-04-04 — Safe active month-period file is now `cash_rec_period_full_test_v2.html`; rollback copy is `cash_rec_period_full_test_snapshot_2026-04-04.html`.
+2026-04-04 — Period backup/import must include `strathroy_periods_v1`; otherwise imported live data can appear while Dashboard, Daily Summary, or month history are rebuilt from stale archive state.
+2026-04-04 — Same-session refresh lock behavior in the period rebuild now depends on session-scoped unlock state, so refresh should not return to the lock screen while the browser session remains open.
+2026-04-04 — The manual Debtors Reconciliation inputs `In Euro`, `Credits`, and `Debtors (Sage)` are not implied by CT/DD/BOI datasets; they must be persisted explicitly as part of the saved period snapshot or they will be lost on refresh.
+2026-04-04 — Final working month-period file is now `cash_rec_period_full_test_v4.html`; `index.html` remains untouched until explicit promotion approval.
+2026-04-04 — Period persistence must write and read both `strathroy_periods_v1` and the app’s `DB_KEYS.periods`; split-key storage caused reopened-month refreshes to revert to stale period state.
+2026-04-04 — Reopen/amend/re-close carry-forward must use prior month closing balances, not the manual `Debtors (Sage)` input. Sage and HSBC/Manual openings can legitimately differ in the next month.
+2026-04-04 — History needs two sources: closed months should read archived summaries, but the currently viewed month should render from live current values so the History diff does not show stale saved numbers.
+2026-04-04 — Final working month-period file advanced to `cash_rec_period_full_test_v5.html`.
+2026-04-04 — Dublin Cash bulk paste must preserve row order for greyed attention rows and skip only rows with no real account code. Permanently deleted customers must also be removed from the stored customer/sample arrays so future pastes stay aligned.
+2026-04-04 — Dublin Cash footer rule is operational, not derived: `Total` is app-calculated, `Opening float` is manual, `Office total` is manual, and `Diff = (Total + Opening float) - Office total`.

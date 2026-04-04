@@ -14,7 +14,7 @@ No server, no npm, no deployment pipeline.
 
 | File | Purpose |
 |------|---------|
-| `cash_rec_test.html` | Current working file with latest fixes |
+| `cash_rec_period_full_test_v5.html` | Current working file with latest fixes |
 | `index.html` | GitHub Pages deploy target |
 | `archive/legacy-html/` | Legacy local/reference HTML files retained outside the root |
 
@@ -37,8 +37,8 @@ The published filename on GitHub Pages should stay `index.html`.
 
 ```cmd
 cd "C:\Claude Projects\Strathroy Projects\Cash Recs"
-copy cash_rec_test.html index.html
-git add cash_rec_test.html index.html
+copy cash_rec_period_full_test_v5.html index.html
+git add cash_rec_period_full_test_v5.html index.html
 git commit -m "deploy update"
 git push -u origin main
 ```

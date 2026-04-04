@@ -2892,9 +2892,6 @@ function buildDCBlocks(){
     monthTotalEl.textContent = '€' + pageMonthTotal.toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
   }
   Object.entries(WE_CONFIG).forEach(([weRef,cfg])=>{
-    if(!Array.isArray(cfg.dates) || cfg.dates.length !== cfg.labels.length){
-      cfg.dates = Array.from({length:cfg.labels.length},(_,i)=>cfg.dates && cfg.dates[i] || '');
-    }
     const div=document.createElement('div');
     div.className='we-block';
     div.id='we-'+weRef;
@@ -2931,7 +2928,7 @@ function buildDCBlocks(){
           </tr>
           <tr class="lodge-subhd">
             <th class="col-acct"></th><th class="col-name"></th>
-            ${cfg.labels.map((label,i)=>`<th class="col-lodge paste-trigger ${weRef}-c${i+1}" onclick="openPaste('${weRef}',${i+1},'${label}')">${label} 📋<div style="margin-top:6px;"><input class="inp" style="width:100%;min-width:88px;font-size:11px;text-align:center;" placeholder="Date" value="${cfg.dates[i] || ''}" onclick="event.stopPropagation()" oninput="updateLodgeDate('${weRef}',${i},this.value)"></div></th>`).join('')}
+            ${cfg.labels.map((label,i)=>`<th class="col-lodge paste-trigger ${weRef}-c${i+1}" onclick="openPaste('${weRef}',${i+1},'${label}')">${label} 📋</th>`).join('')}
             <th class="col-total"></th>
           </tr>
         </thead>
@@ -2960,9 +2957,6 @@ function buildGrid(weRef){
   const cfg=WE_CONFIG[weRef];
   const data=SAMPLE[weRef];
   const lc=cfg.labels.length;
-  if(!Array.isArray(cfg.dates) || cfg.dates.length !== lc){
-    cfg.dates = Array.from({length:lc},(_,i)=>cfg.dates && cfg.dates[i] || '');
-  }
   const tbody=document.getElementById('body-'+weRef);
   const tfoot=document.getElementById('foot-'+weRef);
   tbody.innerHTML='';tfoot.innerHTML='';
@@ -3025,23 +3019,17 @@ function recalcDiff(weRef,lodge){
   const rows=document.getElementById('foot-'+weRef).querySelectorAll('tr');
   if(rows.length<3)return;
   const floatInputs=rows[1].querySelectorAll('input');
+  // Office total is now a plain td, not input
   const offCell=document.getElementById(`offtot-${weRef}-${lodge}`);
   const float=parseFloat((floatInputs[lodge]?.value||'0').replace(/,/g,''))||0;
+  const off=parseFloat((offCell?.textContent||'0').replace(/,/g,''))||0;
+  // Update stored float
   cfg.floats[lodge]=float;
   const calc=cfg.totals[lodge]+float;
-  const off=parseFloat((offCell?.textContent||'0').replace(/,/g,''))||0;
-  const diff=calc-off;
+  const diff=off-calc;
   const ok=Math.abs(diff)<0.01;
   const el=document.getElementById(`diff-${weRef}-${lodge}`);
   if(el){el.textContent=ok?'0.00 ✓':fmtDisp(diff)+' ⚠';el.className=`${weRef}-c${lodge+1} ${ok?'diff-ok':'diff-bad'}`;}
-  persistAll();
-}
-function updateLodgeDate(weRef,lodgeIdx,value){
-  const cfg=WE_CONFIG[weRef];
-  if(!cfg) return;
-  if(!Array.isArray(cfg.dates)) cfg.dates = Array.from({length:cfg.labels.length},()=> '');
-  cfg.dates[lodgeIdx] = value;
-  persistAll();
 }
 
 function toggleLodgeCol(weRef,colNum,btn){
@@ -3126,9 +3114,8 @@ function confirmPost(){
 
 function openPaste(weRef,lodge,label){
   curPasteWE=weRef;curPasteLodge=lodge;
-  const pasteTargets = CUSTOMERS.filter(c => String(c && c.acct || '').trim());
   document.getElementById('paste-title').textContent=`Paste Lodg ${lodge} — ${label}`;
-  document.getElementById('paste-sub').textContent=`Copy the Amount column for ${label} from the office sheet. ${pasteTargets.length} values expected.`;
+  document.getElementById('paste-sub').textContent=`Copy the Amount column for ${label} from the office sheet. ${CUSTOMERS.length} values expected.`;
   document.getElementById('paste-ta').value='';
   showModal('pasteModal');
 }
@@ -3137,17 +3124,13 @@ function applyPaste(){
   if(!raw)return;
   const lines=raw.split('\n').map(l=>l.trim());
   const weRef=curPasteWE;const lodge=curPasteLodge;
-  const pasteTargets = CUSTOMERS
-    .map((c,i)=>({ customer:c, index:i }))
-    .filter(({ customer }) => String(customer && customer.acct || '').trim());
   if(!SAMPLE[weRef])SAMPLE[weRef]=[];
   lines.forEach((line,i)=>{
-    if(i>=pasteTargets.length)return;
-    const targetIndex = pasteTargets[i].index;
-    if(!SAMPLE[weRef][targetIndex])SAMPLE[weRef][targetIndex]=[];
+    if(i>=CUSTOMERS.length)return;
+    if(!SAMPLE[weRef][i])SAMPLE[weRef][i]=[];
     const v=line===''||line==='-'?null:parseFloat(line.replace(/,/g,''));
-    while(SAMPLE[weRef][targetIndex].length<=lodge-1)SAMPLE[weRef][targetIndex].push(null);
-    SAMPLE[weRef][targetIndex][lodge-1]=isNaN(v)?null:v;
+    while(SAMPLE[weRef][i].length<=lodge-1)SAMPLE[weRef][i].push(null);
+    SAMPLE[weRef][i][lodge-1]=isNaN(v)?null:v;
   });
   let colTotal=0;
   SAMPLE[weRef].forEach(row=>{if(row&&row[lodge-1]!=null)colTotal+=row[lodge-1];});
@@ -3180,24 +3163,7 @@ function toggleInact(btn){const dd=btn.nextElementSibling;document.querySelector
 function keepActive(btn){const tr=btn.closest('tr');tr.classList.remove('inactive');btn.closest('.inact-wrap').remove();tr.querySelectorAll('td:nth-child(2) span').forEach(s=>s.remove());btn.closest('.inact-dd').classList.add('hidden');}
 function makeInactive(btn){btn.closest('tr').classList.add('inactive');btn.closest('.inact-dd').classList.add('hidden');}
 function deleteCust(btn){rowToDelete=btn.closest('tr');const name=(rowToDelete.querySelector('td:nth-child(2)')?.firstChild?.textContent||'').trim();document.getElementById('deleteModalBody').textContent=`"${name}" removed from future lodgements. Historical data preserved.`;btn.closest('.inact-dd').classList.add('hidden');showModal('deleteModal');}
-function executeDelete(){
-  if(rowToDelete){
-    const acct = (rowToDelete.querySelector('td.col-acct')?.textContent || '').trim();
-    const idx = CUSTOMERS.findIndex(c => String(c && c.acct || '').trim() === acct);
-    if(idx >= 0){
-      CUSTOMERS.splice(idx,1);
-      Object.keys(SAMPLE).forEach(weRef => {
-        if(Array.isArray(SAMPLE[weRef])) SAMPLE[weRef].splice(idx,1);
-      });
-      Object.keys(WE_CONFIG).forEach(weRef => buildGrid(weRef));
-      persistAll();
-    } else {
-      rowToDelete.remove();
-    }
-    rowToDelete=null;
-  }
-  hideModal('deleteModal');
-}
+function executeDelete(){if(rowToDelete){rowToDelete.remove();rowToDelete=null;}hideModal('deleteModal');}
 document.addEventListener('click',e=>{if(!e.target.closest('.inact-wrap'))document.querySelectorAll('.inact-dd').forEach(d=>d.classList.add('hidden'));});
 
 // Add customer
@@ -3218,7 +3184,7 @@ function createNewWE(){
   const ref=document.getElementById('newWe-ref').value.trim().toUpperCase();
   const count=parseInt(document.getElementById('newWe-count').value)||2;
   if(!ref)return;
-  WE_CONFIG[ref]={labels:Array.from({length:count},(_,i)=>`Lodgement ${i+1}`),dates:Array(count).fill(''),totals:Array(count).fill(0),floats:Array(count).fill(0),officeTotals:Array(count).fill(0),posted:false,postDate:''};
+  WE_CONFIG[ref]={labels:Array.from({length:count},(_,i)=>`Lodgement ${i+1}`),totals:Array(count).fill(0),floats:Array(count).fill(0),officeTotals:Array(count).fill(0),posted:false,postDate:''};
   SAMPLE[ref]=CUSTOMERS.map(()=>Array(count).fill(null));
   buildDCBlocks();
   hideModal('addLodgeModal');
@@ -4108,22 +4074,32 @@ function buildGrid(weRef){
   let offRow='<tr class="foot-office"><td colspan="2">Office total</td>';
   for(let l=0;l<lc;l++){
     const isHid=hiddenCols[weRef+'-'+(l+1)]?'style="display:none"':'';
-    offRow+=`<td class="${weRef}-c${l+1}" ${isHid}><input class="inp-float" id="offtot-${weRef}-${l}" value="${fmtDisp(cfg.officeTotals[l])}" oninput="recalcDiff('${weRef}',${l})"></td>`;
+    offRow+=`<td class="${weRef}-c${l+1}" id="offtot-${weRef}-${l}" ${isHid}>${fmtDisp(cfg.officeTotals[l])}</td>`;
   }
   offRow+='<td class="col-total"></td></tr>';
 
   let diffRow='<tr class="foot-diff"><td colspan="2">Diff</td>';
   for(let l=0;l<lc;l++){
-    const calc=cfg.totals[l]+Number(cfg.floats[l] || 0);
-    const office=Number(cfg.officeTotals[l] || 0);
-    const diff=calc-office;
+    const calc=cfg.totals[l]+cfg.floats[l];
+    const diff=cfg.officeTotals[l]-calc;
     const ok=Math.abs(diff)<0.01;
     const isHid=hiddenCols[weRef+'-'+(l+1)]?'style="display:none"':'';
+    // Check ±1 day timing offset (cosmetic)
     diffRow+=`<td class="${weRef}-c${l+1} ${ok?'diff-ok':'diff-bad'}" id="diff-${weRef}-${l}" ${isHid}>${ok?'0.00 ✓':fmtDisp(diff)+' ⚠'}</td>`;
   }
   diffRow+='<td class="col-total"></td></tr>';
 
   tfoot.innerHTML=totalRow+floatRow+offRow+diffRow;
+
+  // Root cause: if any diff is non-zero, find the customer row responsible
+  for(let l=0;l<lc;l++){
+    const calc=cfg.totals[l]+cfg.floats[l];
+    const diff=cfg.officeTotals[l]-calc;
+    if(Math.abs(diff)>=0.01){
+      showDublinDiffRootCause(weRef,l,diff,data);
+      break;
+    }
+  }
 }
 
 function showDublinDiffRootCause(weRef,lodgeIdx,diff,data){
