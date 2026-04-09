@@ -4,7 +4,9 @@
 
 Single-file HTML/CSS/JS reconciliation app for Strathroy Dairy.
 
-- Working file: `cash_rec_test.html`
+- Live publish file: `index.html`
+- Test period rebuild file: `cash_rec_period_test.html`
+- Older troubleshooting file: `cash_rec_test.html`
 - Publish file: `index.html`
 - Legacy reference area: `archive/legacy-html/`
 - Stack: vanilla HTML/CSS/JS, SheetJS via CDN, browser `localStorage`
@@ -14,8 +16,9 @@ Single-file HTML/CSS/JS reconciliation app for Strathroy Dairy.
 
 | File | Role |
 |---|---|
-| `cash_rec_test.html` | Primary working file for new app changes |
-| `index.html` | GitHub Pages publish target |
+| `index.html` | Live file and only safe working base right now |
+| `cash_rec_period_test.html` | Test rebuild file for month-period logic; partial only, not production-ready |
+| `cash_rec_test.html` | Older troubleshooting file; contains a broken partial period experiment |
 | `archive/legacy-html/cash_rec_design_test.html` | Design/test variant kept out of the root |
 | `archive/legacy-html/strathroy_cash_rec_v27.html` | Older local reference variant |
 | `archive/legacy-html/cash_rec_test_backup_2026-04-01_before_sage_fix.html` | Dated backup snapshot |
@@ -129,7 +132,9 @@ Important accounting behaviors:
 ## Current Known State
 
 - `cash_rec_test.html` contains the newer upload ownership fix using `_sessionId`.
-- `index.html` should stay aligned with `cash_rec_test.html` when publishing.
+- `index.html` is the live file and the only safe working base right now.
+- `cash_rec_period_test.html` is where period work was isolated, but it is still not safe to treat as a working base.
+- The current period rebuild is only partial: it handles some month-end persistence and close/open states, but does not yet restore full archived month state across all tabs.
 - `archive/legacy-html/strathroy_cash_rec_v27.html` remains useful as an older reference but is not the main working file.
 - Backup/import is the supported cross-PC workflow until a cloud sync path exists.
 
@@ -138,6 +143,6 @@ Important accounting behaviors:
 - Verify backup import on another PC via the live GitHub Pages site.
 - Finalise favicon/embed strategy so branding is less path-dependent.
 - Add month-end balance checks.
-- Add new-month carry-forward workflow.
-- Connect History to real closed-month data.
+- Rebuild new-month workflow as a full period archive model.
+- Connect closed-month navigation to full archived month state, not just a Section 2 snapshot.
 - Decide whether cloud sync is worth adding beyond manual backup/import.

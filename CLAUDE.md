@@ -69,3 +69,8 @@
 
 ## Deploy Rule
 - Only deploy when the user explicitly says `deploy`, `push`, `go live`, or `/deploy`
+## Plan Before Code Rule
+Do not make any changes until you have 95% confidence in the approach.
+Ask follow-up questions until you reach that level.
+Show a plan — what changes, where, in what order — and wait for approval.
+This applies to every task, every session, no exceptions.

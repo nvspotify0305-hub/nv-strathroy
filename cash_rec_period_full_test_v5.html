@@ -864,8 +864,8 @@ footer{
         </div>
       </div>
       <div class="card">
-        <div class="card-hd"><span class="card-title">Recent Activity</span></div>
-        <div class="card-body" style="padding-top:8px;padding-bottom:8px;" id="recent-activity-list"></div>
+        <div class="card-hd"><span class="card-title">Reminders</span><span class="text-xs text-lt">Deadline driven</span></div>
+        <div class="card-body" id="dash-reminders-list"></div>
       </div>
     </div>
     <div class="card">
@@ -881,10 +881,6 @@ footer{
         <hr class="divider">
         <div class="flex justify-between"><span class="text-xs fw-6">Net adjustment</span><span class="mono text-xs fw-6" id="dash-alert-netadj">+€17.50</span></div>
       </div>
-    </div>
-    <div class="card">
-      <div class="card-hd"><span class="card-title">Reminders</span><span class="text-xs text-lt">Deadline driven</span></div>
-      <div class="card-body" id="dash-reminders-list"></div>
     </div>
   </div>
 </div>
@@ -3029,7 +3025,8 @@ function recalcDiff(weRef,lodge){
   const float=parseFloat((floatInputs[lodge]?.value||'0').replace(/,/g,''))||0;
   cfg.floats[lodge]=float;
   const calc=cfg.totals[lodge]+float;
-  const off=parseFloat((offCell?.textContent||'0').replace(/,/g,''))||0;
+  const off=parseFloat((offCell?.value||'0').replace(/,/g,''))||0;
+  cfg.officeTotals[lodge]=off;
   const diff=calc-off;
   const ok=Math.abs(diff)<0.01;
   const el=document.getElementById(`diff-${weRef}-${lodge}`);
@@ -3177,7 +3174,7 @@ function exportWE(weRef,sageOnly){
 
 // Inactivity
 function toggleInact(btn){const dd=btn.nextElementSibling;document.querySelectorAll('.inact-dd').forEach(d=>{if(d!==dd)d.classList.add('hidden');});dd.classList.toggle('hidden');}
-function keepActive(btn){const tr=btn.closest('tr');tr.classList.remove('inactive');btn.closest('.inact-wrap').remove();tr.querySelectorAll('td:nth-child(2) span').forEach(s=>s.remove());btn.closest('.inact-dd').classList.add('hidden');}
+function keepActive(btn){const tr=btn.closest('tr');tr.classList.remove('inactive');btn.closest('.inact-wrap').remove();tr.querySelectorAll('td:nth-child(2) span').forEach(s=>s.remove());btn.closest('.inact-dd').classList.add('hidden');const acct=(tr.querySelector('td.col-acct')?.textContent||'').trim();const idx=CUSTOMERS.findIndex(c=>String(c&&c.acct||'').trim()===acct);if(idx>=0){CUSTOMERS[idx].flag=null;persistAll();}}
 function makeInactive(btn){btn.closest('tr').classList.add('inactive');btn.closest('.inact-dd').classList.add('hidden');}
 function deleteCust(btn){rowToDelete=btn.closest('tr');const name=(rowToDelete.querySelector('td:nth-child(2)')?.firstChild?.textContent||'').trim();document.getElementById('deleteModalBody').textContent=`"${name}" removed from future lodgements. Historical data preserved.`;btn.closest('.inact-dd').classList.add('hidden');showModal('deleteModal');}
 function executeDelete(){

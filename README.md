@@ -9,8 +9,9 @@ Single-file HTML app for cash reconciliation.
 
 ## Working Files
 
-- `cash_rec_test.html`: current working file with the latest fixes
-- `index.html`: GitHub Pages publish target
+- `index.html`: live file and current safe working file
+- `cash_rec_period_test.html`: isolated month-period experiment, not production-ready
+- `cash_rec_test.html`: older troubleshooting file, broken for period work
 
 ## Archive
 
@@ -31,3 +32,4 @@ Single-file HTML app for cash reconciliation.
 - The app uses browser `localStorage`, so hosted data will be separate from `file://` data.
 - Excel import/export depends on the SheetJS CDN.
 - Google Fonts are loaded from Google Fonts CDN.
+- `index.html` should remain protected until the month-period workflow is rebuilt correctly.

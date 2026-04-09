@@ -5,9 +5,9 @@
 ---
 
 ## Current Version: v27
-**Working File:** `cash_rec_test.html`
+**Working File:** `index.html`
 **Publish File:** `index.html`
-**Deployed:** GitHub repo pushed; backup/import deploy live on `main` via commit `846ecf5`
+**Deployed:** GitHub repo pushed; live app remains on `index.html`
 **Architecture:** Single-file vanilla HTML/CSS/JS app with localStorage persistence and SheetJS for .xlsx import/export
 
 ---
@@ -36,6 +36,7 @@
 | Branding portability across PCs | Partial | Official logo is now standardised to `images/Logo Official.jpg` in active files, but consistency still depends on the bundled `images` folder and version strings still need manual review |
 | Backup / import portability | Complete | Manual JSON transfer workflow now implemented for cross-PC use |
 | Cross-PC data sync | Partial | Manual backup/import exists; no live cloud sync |
+| Month-period rebuild | In progress | Continue in `cash_rec_period_full_test.html`; older `cash_rec_test.html` and `cash_rec_period_test.html` are non-production experiments and must not be mirrored into `index.html` |
 
 ---
 
@@ -50,8 +51,9 @@
 
 ## In Progress
 
-- Verify backup import on the user's work PC against the live GitHub Pages site
-- Confirm whether manual backup/import is sufficient or whether Supabase is still wanted later
+- Keep `index.html` stable while month-period workflow is rebuilt in isolation
+- Rebuild close/open month flow in `cash_rec_period_full_test.html`
+- Define the next-phase `Strathroy OS` hub that will sit above individual tools like Cash Rec and Payroll
 
 ---
 
@@ -74,8 +76,10 @@
 | Data export / import | Completed on 2026-04-02; keep for future enhancements only |
 | Verify Daily Summary timing matches | Confirm CT/DD/Country drill-downs honour adjacent-day timing tolerance on real Sage test files |
 | Month-end balance checks | HSBC statement reconciliation |
-| New month workflow | New localStorage prefix, carry-forward balances |
-| History tab — live data | Connect History tab to real persisted data (not sample) |
+| New month workflow | Rebuild as a full period archive model, not a partial month-end snapshot |
+| History tab — live data | Final model must follow full archived months in `cash_rec_period_full_test.html` |
+| Full period archive | Each closed month must retain all tab data and restore it on toolbar navigation |
+| Reopen and reclose | Reopening a closed month, amending it, and closing it again must refresh both the month archive and the next month opening balance |
 | Print / PDF export | One-click print layout or PDF generation |
 | Mileage tab | 4 reps: Barry O'Reilly, Declan Wren, Gavin Joyce, Paul Duffy |
 | Discount App column | Currently mirrors Sage only — extend to show App-side discounts |
@@ -92,6 +96,24 @@
 | GitHub Pages deploy | Live now; smoke-test on another PC after import |
 | Collaborator access | One read-only collaborator (view only, no edit permissions) |
 | Multi-device access | Hosted URL works, but data still needs export/import or cloud sync |
+
+### Phase 4 — Strathroy OS
+| Item | Detail |
+|------|--------|
+| Main dashboard / launcher | Single Strathroy entry point to open Cash Rec, Payroll, Tolls, Holidays, Rebates, and later modules |
+| Module model | Start as a browser-based hub with separate modules/pages, then pull shared pieces into one shell over time |
+| Free-first build | Initial OS/dashboard can be built free using plain HTML/CSS/JS plus free hosting |
+| Shared navigation | Consistent branding, quick launch cards, status, reminders, and recent activity across modules |
+| Shared data direction | Long-term goal is one internal system rather than separate disconnected tools |
+
+### Phase 5 — Payroll / Ops Modules
+| Item | Detail |
+|------|--------|
+| Payroll | Next major module after Cash Rec |
+| Holidays | Bulk-import structured holiday data for all employees and track balances/history |
+| Tolls | Operational tracking module under the same shell |
+| Rebates | Operational tracking module under the same shell |
+| Employee records | Shared employee list for reuse across Payroll, Holidays, and later modules |
 
 ---
 
@@ -118,8 +140,26 @@
 
 ## Deployment Rules
 
-- Working file: `cash_rec_test.html`
+- Safe working file: `index.html`
+- Current rebuild file: `cash_rec_period_full_test.html`
+- Older test/experiment files: `cash_rec_test.html`, `cash_rec_period_test.html`
 - Deploy target: `index.html`
 - GitHub Pages branch/folder: `main` / `(root)`
 - Hosted deploy does not carry `file://` localStorage forward
 - Cross-PC workflow is now `Export Backup` -> move JSON -> `Import Backup`
+- Do not copy period-rebuild changes into `index.html` until full month restore across all tabs is working
+
+---
+
+## Strathroy OS Notes
+
+- The intended next platform is a lightweight internal `Strathroy OS` dashboard that launches business tools from one place.
+- Planned first modules: `Cash Rec`, `Payroll`, `Tolls`, `Holidays`, `Rebates`.
+- A first version can be built free of charge using browser-based pages and free hosting.
+- NotebookLM is not the planned system of record for operational data; it may help with reading/supporting documents only.
+- Holiday data should be imported into a dedicated module as structured records, not managed through document chat/search.
+- Expected core data is mostly text/numeric and is small by modern standards, even across multiple years and around 70 employees.
+- Excel files are expected to be import-only for data reading, not permanent primary storage.
+- PDFs, payslips, and image-heavy storage are not part of the main expected data footprint.
+- Browser `localStorage` is acceptable for prototypes and smaller tools, but a proper backend is preferred once Strathroy OS becomes the main internal shared system.
+- A small backend such as Supabase free tier is the likely upgrade path if shared live multi-module data is needed.
