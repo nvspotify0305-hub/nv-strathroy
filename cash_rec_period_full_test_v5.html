@@ -2972,7 +2972,7 @@ function buildGrid(weRef){
       const v=data&&data[i]&&data[i][l]!==null&&data[i][l]!==undefined?parseFloat(data[i][l]):null;
       if(v!==null)rowTotal+=v;
       const isHid=hiddenCols[weRef+'-'+(l+1)]?'style="display:none"':'';
-      tdCols+=`<td class="col-lodge ${weRef}-c${l+1}${v===null?' zero':''}" ${isHid}>${fmtDisp(v)}</td>`;
+      tdCols+=`<td class="col-lodge ${weRef}-c${l+1}${v===null?' zero':''}" ${isHid} ondblclick="editCell(this,'${weRef}',${i},${l})" title="Double-click to edit">${fmtDisp(v)}</td>`;
     }
     const flagHtml=c.flag?` <span style="background:var(--amber-pale);color:var(--amber);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;">${c.flag}</span><div class="inact-wrap"><button style="background:none;border:1px solid var(--border-md);border-radius:4px;font-size:10px;padding:1px 5px;cursor:pointer;color:var(--ink-lt);" onclick="toggleInact(this)">💤</button><div class="inact-dd hidden"><div class="inact-ddhd">💤 No activity 2 months</div><button class="inact-opt" onclick="keepActive(this)">Keep active</button><button class="inact-opt" onclick="makeInactive(this)">Make inactive</button><button class="inact-opt danger" onclick="deleteCust(this)">Delete permanently</button></div></div>`:'';
     tr.innerHTML=`<td class="col-acct">${c.acct}</td><td class="col-name">${c.name}${flagHtml}</td>${tdCols}<td class="col-total">${fmtDisp(rowTotal===0?null:rowTotal)}</td>`;
@@ -3142,7 +3142,8 @@ function applyPaste(){
     if(i>=pasteTargets.length)return;
     const targetIndex = pasteTargets[i].index;
     if(!SAMPLE[weRef][targetIndex])SAMPLE[weRef][targetIndex]=[];
-    const v=line===''||line==='-'?null:parseFloat(line.replace(/,/g,''));
+    const clean=line.replace(/,/g,'');
+    const v=clean===''||clean==='-'?null:/^\([\d.]+\)$/.test(clean)?-parseFloat(clean.slice(1,-1)):parseFloat(clean);
     while(SAMPLE[weRef][targetIndex].length<=lodge-1)SAMPLE[weRef][targetIndex].push(null);
     SAMPLE[weRef][targetIndex][lodge-1]=isNaN(v)?null:v;
   });
@@ -3176,6 +3177,27 @@ function exportWE(weRef,sageOnly){
 function toggleInact(btn){const dd=btn.nextElementSibling;document.querySelectorAll('.inact-dd').forEach(d=>{if(d!==dd)d.classList.add('hidden');});dd.classList.toggle('hidden');}
 function keepActive(btn){const tr=btn.closest('tr');tr.classList.remove('inactive');btn.closest('.inact-wrap').remove();tr.querySelectorAll('td:nth-child(2) span').forEach(s=>s.remove());btn.closest('.inact-dd').classList.add('hidden');const acct=(tr.querySelector('td.col-acct')?.textContent||'').trim();const idx=CUSTOMERS.findIndex(c=>String(c&&c.acct||'').trim()===acct);if(idx>=0){CUSTOMERS[idx].flag=null;persistAll();}}
 function makeInactive(btn){btn.closest('tr').classList.add('inactive');btn.closest('.inact-dd').classList.add('hidden');}
+
+function editCell(td,weRef,custIdx,lodge){
+  if(td.querySelector('input'))return;
+  const cur=(SAMPLE[weRef]&&SAMPLE[weRef][custIdx]&&SAMPLE[weRef][custIdx][lodge]!=null)?SAMPLE[weRef][custIdx][lodge]:'';
+  td.innerHTML=`<input type="number" step="0.01" style="width:72px;font-family:'DM Mono',monospace;font-size:12px;border:1px solid var(--navy);border-radius:3px;padding:2px 4px;text-align:right;outline:none;" value="${cur}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}if(event.key==='Escape'){buildGrid('${weRef}');}" onblur="commitCell(this,'${weRef}',${custIdx},${lodge})">`;
+  td.querySelector('input').select();
+}
+function commitCell(input,weRef,custIdx,lodge){
+  const val=input.value.trim();
+  const v=val===''?null:parseFloat(val);
+  if(!SAMPLE[weRef])SAMPLE[weRef]=[];
+  if(!SAMPLE[weRef][custIdx])SAMPLE[weRef][custIdx]=[];
+  while(SAMPLE[weRef][custIdx].length<=lodge)SAMPLE[weRef][custIdx].push(null);
+  SAMPLE[weRef][custIdx][lodge]=(v===null||isNaN(v))?null:v;
+  let colTotal=0;
+  SAMPLE[weRef].forEach(row=>{if(row&&row[lodge]!=null)colTotal+=row[lodge];});
+  WE_CONFIG[weRef].totals[lodge]=Math.round(colTotal*100)/100;
+  buildGrid(weRef);
+  persistAll();
+}
+
 function deleteCust(btn){rowToDelete=btn.closest('tr');const name=(rowToDelete.querySelector('td:nth-child(2)')?.firstChild?.textContent||'').trim();document.getElementById('deleteModalBody').textContent=`"${name}" removed from future lodgements. Historical data preserved.`;btn.closest('.inact-dd').classList.add('hidden');showModal('deleteModal');}
 function executeDelete(){
   if(rowToDelete){
@@ -4078,7 +4100,7 @@ function buildGrid(weRef){
       if(v!==null){rowTotal+=v;hasAnyValue=true;}
       const isHid=hiddenCols[weRef+'-'+(l+1)]?'style="display:none"':'';
       const negStyle=v!==null&&v<0?'style="color:var(--red);"':'';
-      tdCols+=`<td class="col-lodge ${weRef}-c${l+1}${v===null?' zero':''}" ${isHid} ${negStyle}>${fmtDisp(v)}</td>`;
+      tdCols+=`<td class="col-lodge ${weRef}-c${l+1}${v===null?' zero':''}" ${isHid} ${negStyle} ondblclick="editCell(this,'${weRef}',${i},${l})" title="Double-click to edit">${fmtDisp(v)}</td>`;
     }
     // FIX: use fmtDispSigned for row total — handles negatives correctly
     const rowTotalDisplay=hasAnyValue?fmtDispSigned(rowTotal):'—';
@@ -5568,6 +5590,7 @@ const DB_KEYS = {
   typoQueue:    DB_PREFIX + 'typoQueue',
   alerts:       DB_PREFIX + 'alerts',
   periods:      DB_PREFIX + 'periods',
+  customers:    DB_PREFIX + 'customers',
 };
 
 // In-memory fallback when localStorage is unavailable (file:// protocol, private browsing)
@@ -5726,6 +5749,7 @@ function persistAll() {
     ...r,
     date: r.date ? r.date.toISOString() : null
   })));
+  dbSave(DB_KEYS.customers, CUSTOMERS);
   dbSave(DB_KEYS.typoQueue, typoQueue);
   dbSave(DB_KEYS.alerts, {
     dismissed: [...dismissedAlerts],
@@ -5784,6 +5808,12 @@ function loadPersistedData() {
     Object.keys(SAMPLE).forEach(k => delete SAMPLE[k]);
     Object.keys(savedSample).forEach(k => { SAMPLE[k] = savedSample[k]; });
     console.log('Loaded SAMPLE for:', Object.keys(savedSample).join(', '));
+  }
+
+  // CUSTOMERS — splice in-place so flag changes survive reload
+  const savedCustomers = dbLoad(DB_KEYS.customers);
+  if (savedCustomers && savedCustomers.length) {
+    CUSTOMERS.splice(0, CUSTOMERS.length, ...savedCustomers);
   }
 
   // Sage import state
