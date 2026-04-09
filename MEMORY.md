@@ -55,3 +55,6 @@
 2026-04-04 — Final working month-period file advanced to `cash_rec_period_full_test_v5.html`.
 2026-04-04 — Dublin Cash bulk paste must preserve row order for greyed attention rows and skip only rows with no real account code. Permanently deleted customers must also be removed from the stored customer/sample arrays so future pastes stay aligned.
 2026-04-04 — Dublin Cash footer rule is operational, not derived: `Total` is app-calculated, `Opening float` is manual, `Office total` is manual, and `Diff = (Total + Opening float) - Office total`.
+2026-04-09 — CUSTOMERS array is a hardcoded const and was never persisted; flag mutations were lost on every reload. Fix: add DB_KEYS.customers, save in persistAll(), splice-load in loadPersistedData(). Same pattern applies to any other hardcoded const arrays if they need to be user-editable.
+2026-04-09 — Reading .textContent on an <input> element always returns empty string. recalcDiff was doing this for the Office total cell — always use .value for input elements.
+2026-04-09 — Dashboard dash-grid is 3-column (300px 1fr 280px); a 4th direct child wraps to row 2 and lands at bottom-left. Reminders was in this position — moved into the middle column flex stack to keep it visible without scrolling.

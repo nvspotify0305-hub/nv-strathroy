@@ -61,6 +61,11 @@
   - `Opening float` manual
   - `Office total` manual
   - `Diff = (Total + Opening float) - Office total`
+- Dublin Cash inactive flag changes (Keep active / Make inactive) survive reload — CUSTOMERS now persisted to localStorage
+- Dublin Cash Office total persists on refresh and Diff calculates correctly
+- Dublin Cash negative paste works for both `-1234.56` and `(1234.56)` accounting formats
+- Dublin Cash individual cell values editable via double-click
+- Dashboard Reminders (deadline driven) in middle column; Recent Activity removed
 
 ## Reference Files
 - `SESSION_NOTES.md` for current handoff

@@ -1,50 +1,29 @@
 ## Codex Session — 2026-04-09
 
 ### Active File
-- Active working file: `cash_rec_period_full_test_v5.html`
-- Publish/live file: `index.html` (promoted this session)
+- Working file: `cash_rec_period_full_test_v5.html`
+- Publish/live file: `index.html` (promoted this session ×3)
 
-### Current Status
-- All Dublin Cash fixes applied and live
-- Dashboard Reminders promoted to middle column; Recent Activity removed
-- CUSTOMERS array now fully persisted to localStorage
+### Completed This Session
 
-### Changes This Session
-
-#### Dublin Cash — Fixes
-- **keepActive persistence** — `keepActive()` now clears `CUSTOMERS[idx].flag = null` and calls `persistAll()` so the choice survives reload
-- **CUSTOMERS persistence (root fix)** — `CUSTOMERS` was never saved to localStorage; added `DB_KEYS.customers`, save in `persistAll()`, and splice-load in `loadPersistedData()`. This fixes both the re-flagging on reload and "Keep active" reverting after refresh
-- **Office total save** — `recalcDiff()` was reading `offCell.textContent` instead of `offCell.value`, so Office total was never saved. Fixed to `.value` and added `cfg.officeTotals[lodge] = off` before `persistAll()`
-- **Negative paste** — `applyPaste()` now handles Excel accounting format `(1234.56)` → stored as `-1234.56`; standard `-1234.56` already worked
-- **Inline cell edit** — Double-click any amount cell to edit inline. Enter/blur commits; Escape cancels. Saves to SAMPLE, recalculates column total, rebuilds grid, persists
+#### Dublin Cash
+- keepActive now persists: `CUSTOMERS[idx].flag = null` + `persistAll()`
+- Root fix: CUSTOMERS array added to `DB_KEYS`, saved in `persistAll()`, splice-loaded in `loadPersistedData()` — flag changes survive reload
+- Office total save fixed: `recalcDiff` was reading `offCell.textContent` (always empty on an input) — changed to `.value`, added `cfg.officeTotals[lodge] = off` before persist
+- Negative paste: `applyPaste` now handles `(1234.56)` accounting format → stored as `-1234.56`
+- Inline cell edit: double-click any amount cell to edit; Enter/blur commits, Escape cancels; saves to SAMPLE, recalculates column total, rebuilds grid, persists
+- **Delete single lodgement column:** `✕` button on each lodgement `<th>` (unposted batches only); splices all parallel arrays + SAMPLE, resets hidden-col state, rebuilds. If last lodgement, offers to delete whole batch instead.
 
 #### Dashboard
-- **Recent Activity removed** — replaced with Reminders (deadline driven) in the middle column
-- Reminders card was previously wrapping to bottom-left of the grid (row 2); now sits correctly in the middle column below Operations Snapshot
+- Recent Activity card removed
+- Reminders (deadline driven) moved into middle column (was wrapping to bottom-left row 2 of grid)
 
-### Confirmed Working
-- Lock screen no longer returns on same-session refresh
-- Backup/import includes period archive state
-- Manual Month End fields persist on refresh
-- `HSBC CT Adj` persists and affects HSBC/Manual closing only
-- Fresh new months clear stale prior-month carry-over
-- Reopen state survives refresh
-- Dublin Cash inactive flag changes (Keep active / Make inactive) survive reload
-- Dublin Cash Office total persists and Diff calculates correctly
-- Dublin Cash negative values paste correctly (both `-1234` and `(1234)` formats)
-- Dublin Cash individual cells editable via double-click
+#### Version
+- Title tag corrected from v27 → v16 to match JS/console strings (all now v16)
 
-### Carry-Forward Rules (unchanged)
-- New month opening balances come from prior month closing balances
-- Sage opening carries from prior `Clos balance` Sage
-- HSBC / Manual opening carries from prior `Clos balance` HSBC / Manual
-- Do not use `Debtors (Sage)` manual input as carry-forward source
+### Known Issues
+- None outstanding
 
-### File Layout
-- Keep `cash_rec_period_full_test_v5.html` at repo root as working file
-- Rollback snapshots archived to `archive/legacy-html/`
-
-### Next Sensible Steps
-1. Smoke-test Dublin Cash on live URL after push
-2. Consider adding ability to add/edit reminder deadlines from the Dashboard
-3. Promote `v5` into `index.html` when ready for next release
+### Next Session
+1. Smoke-test all Dublin Cash fixes on live URL
+2. Consider making Dashboard reminder deadlines editable from the UI (currently hardcoded in JS)

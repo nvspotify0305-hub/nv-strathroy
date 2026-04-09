@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Strathroy Dairy — Cash Rec v27</title>
+<title>Strathroy Dairy — Cash Rec v16</title>
 <link rel="shortcut icon" href="images/favicon.ico" type="image/x-icon">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -406,6 +406,8 @@ input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0.5;cursor:poi
 .lodge-toggle{font-size:10px;background:none;border:1px solid var(--border-md);border-radius:4px;padding:1px 5px;cursor:pointer;color:var(--ink-lt);font-family:'DM Sans',sans-serif;margin-left:3px;transition:all .12s;}
 .lodge-toggle:hover{background:var(--bg);}
 .lodge-toggle.toggled{color:var(--navy);border-color:var(--navy-pale);}
+.lodge-del{font-size:10px;background:none;border:1px solid var(--red);border-radius:4px;padding:1px 5px;cursor:pointer;color:var(--red);font-family:'DM Sans',sans-serif;margin-left:2px;transition:all .12s;}
+.lodge-del:hover{background:var(--red);color:#fff;}
 
 /* ── BOI INLINE EDIT ── */
 .boi-cell-edit{cursor:pointer;border-radius:4px;padding:1px 4px;transition:background .12s;}
@@ -2922,7 +2924,7 @@ function buildDCBlocks(){
           <tr>
             <th class="col-acct">Acct</th>
             <th class="col-name">Customer</th>
-            ${cfg.labels.map((_,i)=>`<th class="col-lodge" id="lhd-${weRef}-${i+1}">Lodg ${i+1} <button class="lodge-toggle" onclick="toggleLodgeCol('${weRef}',${i+1},this)">Hide</button></th>`).join('')}
+            ${cfg.labels.map((_,i)=>`<th class="col-lodge" id="lhd-${weRef}-${i+1}">Lodg ${i+1} <button class="lodge-toggle" onclick="toggleLodgeCol('${weRef}',${i+1},this)">Hide</button>${!cfg.posted?`<button class="lodge-del" onclick="deleteLodgeCol('${weRef}',${i})">✕</button>`:''}</th>`).join('')}
             <th class="col-total">Total</th>
           </tr>
           <tr class="lodge-subhd">
@@ -2947,6 +2949,30 @@ function deleteWEBatch(weRef){
   if(!confirm('Delete WE batch '+weRef+'? This will remove all lodgement data. Cannot be undone.'))return;
   delete WE_CONFIG[weRef];
   delete SAMPLE[weRef];
+  persistAll();
+  buildDCBlocks();
+  renderDailySummary();
+}
+
+function deleteLodgeCol(weRef,lodgeIdx){
+  const cfg=WE_CONFIG[weRef];
+  if(!cfg)return;
+  if(cfg.posted){alert('Unpost this batch first before deleting a lodgement.');return;}
+  if(cfg.labels.length<=1){
+    if(confirm('Only one lodgement remains. Delete entire batch "'+weRef+'" instead?'))deleteWEBatch(weRef);
+    return;
+  }
+  if(!confirm('Delete Lodgement '+(lodgeIdx+1)+' from '+weRef+'? All amounts in this column will be removed.'))return;
+  cfg.labels.splice(lodgeIdx,1);
+  cfg.dates.splice(lodgeIdx,1);
+  cfg.totals.splice(lodgeIdx,1);
+  cfg.floats.splice(lodgeIdx,1);
+  cfg.officeTotals.splice(lodgeIdx,1);
+  if(SAMPLE[weRef]){
+    SAMPLE[weRef].forEach(row=>{if(Array.isArray(row))row.splice(lodgeIdx,1);});
+  }
+  // Reset hidden-col visibility for this batch (column numbering shifts)
+  Object.keys(hiddenCols).forEach(k=>{if(k.startsWith(weRef+'-'))delete hiddenCols[k];});
   persistAll();
   buildDCBlocks();
   renderDailySummary();

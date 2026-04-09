@@ -17,7 +17,7 @@
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Dashboard with alerts | Complete | Unposted, mismatch, typo alerts |
-| Daily tab — 4 sub-tabs | Complete | CT, DD, BOI, Dublin Cash |
+| Daily tab — 4 sub-tabs | Complete | CT, DD, BOI, Dublin Cash — full persistence, negative paste, inline edit, flag persistence |
 | BOI inline editing | Complete | Paste cash receipts, mark posted |
 | CT/DD data management | Complete | Pre-loaded, editable, persisted |
 | Sage import (multi-upload) | Complete | Dedup on `acct\|date\|ref\|net` |
@@ -81,6 +81,7 @@
 | Full period archive | Each closed month must retain all tab data and restore it on toolbar navigation |
 | Reopen and reclose | Reopening a closed month, amending it, and closing it again must refresh both the month archive and the next month opening balance |
 | Print / PDF export | One-click print layout or PDF generation |
+| Reminder deadlines editable from Dashboard | Currently hardcoded in JS; allow user to add/edit/delete reminders from Dashboard UI |
 | Mileage tab | 4 reps: Barry O'Reilly, Declan Wren, Gavin Joyce, Paul Duffy |
 | Discount App column | Currently mirrors Sage only — extend to show App-side discounts |
 
@@ -135,6 +136,7 @@
 | v9–v15 | 30 Mar 2026 | Typo quarantine, multi-upload, Sage import, Section 2, Settings, localStorage |
 | v16–v27 | 30 Mar 2026 | Classification overhaul, live testing, contra fix, final verification |
 | v27 | 31 Mar 2026 | Replaced Sage vs Bank Rec panel with Sage Import Check waterfall (Total Sage → less Disc → less RB → = Total Receipts net) |
+| v5 period | 09 Apr 2026 | Dublin Cash full persistence, negative paste, inline cell edit, CUSTOMERS localStorage, Dashboard Reminders layout |
 
 ---
 
