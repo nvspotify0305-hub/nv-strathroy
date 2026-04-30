@@ -4596,14 +4596,17 @@ function processSageFile(file) {
       sageUploads = sageUploads.filter(s => s.filename !== file.name);
       sageAllRows = sageAllRows.concat(rows);
 
-      // Deduplicate: same acct + date (ms) + ref + net = same transaction
-      const seen = new Set();
-      sageAllRows = sageAllRows.filter(r => {
+      // Deduplicate cross-file only: remove older-session rows that match any row in the current
+      // upload. Rows within the same file are kept as-is — a single Sage export can legitimately
+      // contain two identical SR rows (e.g. posted twice, one reversed by SP on the same day).
+      // Deduping within the file would remove one SR, leaving the SP with nothing to net against.
+      const newKeys = new Set(rows.map(r =>
+        `${r.acct}|${r.date ? r.date.getTime() : ''}|${r.ref}|${r.net}`));
+      const prevRows = sageAllRows.filter(r => r._srcFile !== file.name);
+      sageAllRows = prevRows.filter(r => {
         const key = `${r.acct}|${r.date ? r.date.getTime() : ''}|${r.ref}|${r.net}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+        return !newKeys.has(key);
+      }).concat(rows);
 
       // Store upload session
       const session = {
