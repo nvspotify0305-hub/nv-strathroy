@@ -80,7 +80,7 @@ body::before{
 .brand-wordmark{width:152px;max-width:100%;height:auto;display:block;}
 .brand-name{
   display:block;
-  width:118px;
+  width:152px;
   max-width:100%;
   height:auto;
 }
@@ -156,7 +156,7 @@ body.app-locked{overflow:hidden;}
 }
 .lock-card{width:min(430px, 100%);background:rgba(255,255,255,0.97);border:1px solid rgba(18,38,63,0.10);border-radius:24px;box-shadow:0 30px 80px rgba(16,32,51,0.18);padding:30px 26px;text-align:center;}
 .lock-mark{font-size:11px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:#5d7590;margin-bottom:10px;}
-.lock-logo{width:112px;max-width:70%;height:auto;display:block;margin:0 auto 16px;}
+.lock-logo{width:138px;max-width:70%;height:auto;display:block;margin:0 auto 16px;}
 .lock-title{margin:0 0 8px;font-size:30px;line-height:1.05;color:#13263a;}
 .lock-sub{margin:0 0 18px;font-size:14px;line-height:1.5;color:#586d82;}
 .lock-field{width:100%;padding:13px 15px;border-radius:14px;border:1px solid #c8d7e7;background:#fff;font-family:'DM Sans',sans-serif;font-size:16px;color:var(--ink);outline:none;}
@@ -2830,18 +2830,12 @@ function parseCT(){
   if(Object.keys(groups).length===0){alert('No valid data. Expected: Date[TAB]Narrative[TAB]Amount');return;}
   const dupWarn=document.getElementById('ct-dup-warning');
   const dups=[];
-  const existingDateKeys=new Set(ctDays.map(d=>periodDateKey(d.date)));
   Object.entries(groups).forEach(([date,rows])=>{
-    if(existingDateKeys.has(periodDateKey(date)))dups.push(date);
+    const total=rows.reduce((s,r)=>s+r.amt,0);
+    if(ctDays.some(d=>d.date+'|'+Math.round(d.total*100)===date+'|'+Math.round(total*100)))dups.push(date);
   });
-  if(dups.length){
-    dupWarn.textContent='\u26a0 Duplicate day blocked: '+dups.join(', ')+' already exists in CT. Delete the existing day first if it needs replacing.';
-    dupWarn.classList.remove('hidden');
-    ctPending=null;
-    document.getElementById('ct-pending-bar').classList.add('hidden');
-    document.getElementById('ct-paste-preview')?.classList.add('hidden');
-    return;
-  }else{dupWarn.classList.add('hidden');}
+  if(dups.length){dupWarn.textContent='\u26a0 Duplicate: '+dups.join(', ')+' already exists with same total.';dupWarn.classList.remove('hidden');}
+  else{dupWarn.classList.add('hidden');}
   const pendingDays=[];
   let pTotal=0,pCount=0;
   Object.entries(groups).forEach(([date,rows])=>{
@@ -2859,16 +2853,6 @@ function parseCT(){
 
 function confirmCT(){
   if(!ctPending)return;
-  const existingDateKeys=new Set(ctDays.map(d=>periodDateKey(d.date)));
-  const dup=ctPending.find(day=>existingDateKeys.has(periodDateKey(day.date)));
-  if(dup){
-    const dupWarn=document.getElementById('ct-dup-warning');
-    if(dupWarn){
-      dupWarn.textContent='\u26a0 Duplicate day blocked: '+dup.date+' already exists in CT.';
-      dupWarn.classList.remove('hidden');
-    }
-    return;
-  }
   ctPending.forEach(day=>{day.confirmed=true;ctDays.push(day);});
   ctPending=null;
   document.getElementById('ct-pending-bar').classList.add('hidden');
@@ -3387,36 +3371,6 @@ function parseActivityDate(val) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function parsePeriodDate(val, fallbackYear=curYear) {
-  if (!val) return null;
-  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
-  const s = String(val).trim();
-  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
-  m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
-  if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
-  m = s.match(/^(\d{1,2})\s+([A-Za-z]{3})(?:\s+(\d{4}))?$/);
-  if (m) {
-    const months = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
-    const monthIdx = months[m[2].slice(0,3).toLowerCase()];
-    if (monthIdx === undefined) return null;
-    return new Date(m[3] ? +m[3] : fallbackYear, monthIdx, +m[1]);
-  }
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function isCurrentPeriodDate(val) {
-  const d = parsePeriodDate(val, curYear);
-  return !!d && d.getFullYear() === curYear && d.getMonth() === curMonth;
-}
-
-function periodDateKey(val) {
-  const d = parsePeriodDate(val, curYear);
-  if (!d) return String(val || '').trim().toLowerCase();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
 function fmtActivityDate(val) {
   const d = parseActivityDate(val);
   if (!d) return '—';
@@ -3819,7 +3773,6 @@ function renderDashboard() {
   });
   renderRecentActivity();
   renderDynamicAlerts();
-  detectCTMissingDays();
 }
 
 function renderDynamicAlerts(){
@@ -3844,19 +3797,16 @@ function renderDynamicAlerts(){
 
   // Unposted WE batches
   Object.entries(WE_CONFIG).forEach(([ref, cfg]) => {
-    const currentLodges = (cfg.totals || [])
-      .map((total, idx) => ({ total: Number(total || 0), date: (cfg.labels || [])[idx] }))
-      .filter(lodge => lodge.total > 0 && isCurrentPeriodDate(lodge.date));
-    if(!cfg.posted && currentLodges.length){
-      const lodgeCount = currentLodges.length;
-      const total = currentLodges.reduce((s,lodge)=>s+lodge.total,0);
+    if(!cfg.posted){
+      const lodgeCount = cfg.totals.filter(t => t > 0).length;
+      const total = cfg.totals.reduce((s,v)=>s+v,0);
       html += mkAlert('we-'+ref, 'dot-warn',
         `<strong>${ref} not posted</strong> — ${lodgeCount} lodgement${lodgeCount!==1?'s':''} · €${total.toLocaleString('en-IE',{minimumFractionDigits:2})} ready to post to Sage`);
     }
   });
 
   // Pending DDs (not confirmed hit bank)
-  const pendingDDs = ddData.filter(r => !r._confirmed && isCurrentPeriodDate(r.date));
+  const pendingDDs = ddData.filter(r => !r._confirmed);
   if(pendingDDs.length){
     const pendTotal = pendingDDs.reduce((s,r)=>s+r.amount,0);
     html += mkAlert('dd-pending', 'dot-info',
@@ -3864,12 +3814,11 @@ function renderDynamicAlerts(){
   }
 
   // Recent CT — last paste date
-  const currentCtDays = ctDays.filter(d=>isCurrentPeriodDate(d.date));
-  if(currentCtDays.length){
-    const sorted = [...currentCtDays].sort((a,b)=>periodDateKey(b.date).localeCompare(periodDateKey(a.date)));
+  if(ctDays.length){
+    const sorted = [...ctDays].sort((a,b)=>b.date.localeCompare(a.date));
     const last = sorted[0];
     html += mkAlert('ct-last', 'dot-ok',
-      `<strong>CT last entry: ${last.date}</strong> — ${currentCtDays.length} day${currentCtDays.length!==1?'s':''} · €${currentCtDays.reduce((s,d)=>s+d.total,0).toLocaleString('en-IE',{minimumFractionDigits:2})} total`);
+      `<strong>CT last entry: ${last.date}</strong> — ${ctDays.length} day${ctDays.length!==1?'s':''} · €${ctDays.reduce((s,d)=>s+d.total,0).toLocaleString('en-IE',{minimumFractionDigits:2})} total`);
   }
 
   container.innerHTML = html || '<div style="padding:8px 0;color:var(--ink-lt);font-size:13px;">No active alerts.</div>';
@@ -3916,7 +3865,8 @@ function detectCTMissingDays(){
   const month=curMonth!==undefined?curMonth:now.getMonth();
   const today=new Date(year,month,now.getDate()<28?now.getDate():28);
 
-  const ctDateSet=new Set(ctDays.filter(d=>isCurrentPeriodDate(d.date)).map(d=>periodDateKey(d.date)));
+  // Get all CT dates as dd/mm/yyyy strings
+  const ctDateSet=new Set(ctDays.map(d=>d.date));
 
   const missing=[];
   const d=new Date(year,month,1);
@@ -3926,7 +3876,11 @@ function detectCTMissingDays(){
       const dstr=String(d.getDate()).padStart(2,'0')+'/'
         +String(d.getMonth()+1).padStart(2,'0')+'/'
         +d.getFullYear();
-      const found=ctDateSet.has(periodDateKey(dstr));
+      // Check if any CT day matches this date
+      const found=ctDays.some(ct=>{
+        // CT_DAYS dates can be in dd/mm/yyyy format
+        return ct.date===dstr;
+      });
       if(!found)missing.push(dstr);
     }
     d.setDate(d.getDate()+1);
@@ -4509,7 +4463,7 @@ function classifySageRef(ref, type, net) {
   if (rt.startsWith('SETT DISC') || rt.startsWith('SETTDISC')) return 'disc';
   // Country Cash patterns — SP reversals on these also net into Country bucket
   if (/^WEX/i.test(r)) return 'country';
-  if (/^CSH\s*APO/i.test(r)) return 'country';
+  if (/^(CSH|CHS)\s*(APO|PO)\b/i.test(r)) return 'country';
   if (/^LATM/i.test(r)) return 'country';
   if (/^PD\s*\d/i.test(r)) return 'country';
   if (/^CT\s*\d/i.test(r)) return 'country';
@@ -4811,6 +4765,8 @@ function renderSageImport() {
       document.getElementById('sage-row-unc').style.background = 'var(--green-pale)';
     } else {
       uncStatus.textContent = '⚠ Review'; uncStatus.style.color = 'var(--amber)';
+      uncStatus.style.cursor = 'pointer'; uncStatus.title = 'Click to jump to review panel';
+      uncStatus.onclick = () => { const p = document.getElementById('sage-unclassified-panel'); if (p) p.scrollIntoView({behavior:'smooth', block:'nearest'}); };
       document.getElementById('sage-row-unc').style.background = 'var(--amber-pale)';
     }
   }

@@ -4463,7 +4463,7 @@ function classifySageRef(ref, type, net) {
   if (rt.startsWith('SETT DISC') || rt.startsWith('SETTDISC')) return 'disc';
   // Country Cash patterns — SP reversals on these also net into Country bucket
   if (/^WEX/i.test(r)) return 'country';
-  if (/^CSH\s*APO/i.test(r)) return 'country';
+  if (/^(CSH|CHS)\s*(APO|PO)\b/i.test(r)) return 'country';
   if (/^LATM/i.test(r)) return 'country';
   if (/^PD\s*\d/i.test(r)) return 'country';
   if (/^CT\s*\d/i.test(r)) return 'country';
@@ -4765,6 +4765,8 @@ function renderSageImport() {
       document.getElementById('sage-row-unc').style.background = 'var(--green-pale)';
     } else {
       uncStatus.textContent = '⚠ Review'; uncStatus.style.color = 'var(--amber)';
+      uncStatus.style.cursor = 'pointer'; uncStatus.title = 'Click to jump to review panel';
+      uncStatus.onclick = () => { const p = document.getElementById('sage-unclassified-panel'); if (p) p.scrollIntoView({behavior:'smooth', block:'nearest'}); };
       document.getElementById('sage-row-unc').style.background = 'var(--amber-pale)';
     }
   }
