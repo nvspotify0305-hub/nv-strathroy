@@ -5352,7 +5352,7 @@ const SETTINGS_DEFAULTS = {
 
 let appSettings = {...SETTINGS_DEFAULTS};
 const LOCK_PASSWORD = 'Pass01';
-const LOCK_IDLE_MS = 10 * 60 * 1000;
+const LOCK_IDLE_MS = 30 * 60 * 1000;
 const LOCK_SESSION_KEY = 'strathroy_unlock_session_v1';
 let lockTimer = null;
 let appUnlocked = false;
@@ -5379,7 +5379,7 @@ function clearLockTimer() {
 function scheduleAutoLock() {
   if (!appUnlocked) return;
   clearLockTimer();
-  lockTimer = setTimeout(() => lockApp('Locked after 10 minutes of inactivity.'), LOCK_IDLE_MS);
+  lockTimer = setTimeout(() => lockApp('Locked after 30 minutes of inactivity.'), LOCK_IDLE_MS);
 }
 
 function markAppActivity() {
