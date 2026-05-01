@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Strathroy Dairy — Cash Rec v16</title>
+<title>Strathroy Dairy — Cash Rec</title>
 <link rel="shortcut icon" href="images/favicon.ico" type="image/x-icon">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -899,7 +899,7 @@ footer{
 
   <!-- SUMMARY -->
   <div id="daily-summary" class="card">
-    <div class="card-hd"><span class="card-title">Month Summary — Mar 2026</span><span class="text-xs text-lt">Live · vs Sage import</span></div>
+    <div class="card-hd"><span class="card-title">Month Summary — Mar 2026</span><div style="display:flex;align-items:center;gap:12px;"><span class="text-xs text-lt">Live · vs Sage import</span><button class="btn btn-ghost btn-sm" onclick="exportSummary()" style="font-size:12px;padding:5px 14px;">&#8595; Export XLS</button></div></div>
     <div class="card-body" style="padding:0;">
       <div id="sum-import-banner" style="padding:9px 18px;border-bottom:1px solid var(--border);font-size:12px;background:var(--bg);">
         <span style="color:var(--ink-lt);">No Sage import yet — diffs unavailable. Go to Month End → Import Sage Export.</span>
@@ -4391,6 +4391,100 @@ function exportDebtorsRec(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Debtors Rec');
   XLSX.writeFile(wb, `DebtorsRec_${label.replace(/\s+/g,'_')}.xlsx`);
+}
+
+function exportSummary() {
+  const label = appSettings.monthLabel || monthLabelFor();
+  const txt = id => {
+    const el = document.getElementById(id);
+    if (!el) return '—';
+    const raw = (el.tagName === 'INPUT' ? el.value : el.textContent).replace(/▲/g,'').trim();
+    return raw || '—';
+  };
+  const isOk = val => val.includes('✓') || val.toLowerCase().includes('matched');
+  const ds = val => {
+    if (!val || val === '—') return 'color:#8a90a0;';
+    return isOk(val) ? 'color:#319B4C;font-weight:bold;' : 'color:#B04040;font-weight:bold;';
+  };
+  const N='#1B3F8D',W='#ffffff',Np='#e8edf8',Nb='#f0f2f6',C2='#f7f8fc';
+  const A='#C4873A',Im='#454a5a',Ik='#1a1c22';
+  const bd='border:1px solid #d0d4e0;';
+  const fa=`font-family:Arial;font-size:10pt;padding:5px 10px;`;
+  const fm=`font-family:'Courier New',monospace;font-size:10pt;padding:5px 10px;text-align:right;`;
+  const td  = (v,s='') => `<td style="${bd}${fa}${s}">${v}</td>`;
+  const num = (v,s='') => `<td style="${bd}${fm}${s}">${v}</td>`;
+  const hd  = (v,s='') => `<td style="${bd}${fa}font-weight:bold;background:${Nb};color:${Ik};border-bottom:2px solid ${N};${s}">${v}</td>`;
+  const sec = (v,c=4)  => `<td colspan="${c}" style="${bd}${fa}font-weight:bold;background:${Np};color:${N};letter-spacing:.5px;">${v.toUpperCase()}</td>`;
+  const sub = (v,c=4)  => `<td colspan="${c}" style="${bd}${fa}font-weight:bold;background:${C2};color:${N};font-size:9pt;">${v}</td>`;
+  const tot = (v,s='') => `<td style="${bd}${fa}font-weight:bold;background:${Nb};${s}">${v}</td>`;
+  const totN= (v,s='') => `<td style="${bd}${fm}font-weight:bold;background:${Nb};${s}">${v}</td>`;
+  const nil = () => `<td style="border:none;background:white;padding:0;"></td>`;
+  const sp  = () => `<tr><td colspan="4" style="height:5px;border:none;background:white;padding:0;"></td></tr>`;
+  const row = (...c) => `<tr>${c.join('')}</tr>`;
+
+  const h = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body>
+<table style="border-collapse:collapse;width:650px;">
+<colgroup><col style="width:230px;"><col style="width:130px;"><col style="width:150px;"><col style="width:110px;"></colgroup>
+
+<tr><td colspan="4" style="${bd}${fa}font-size:13pt;font-weight:bold;background:${N};color:${W};text-align:center;padding:10px;">Cash Reconciliation Summary — ${label}</td></tr>
+${sp()}
+
+${row(sec('Receipts Reconciliation'))}
+${row(hd('Item'),hd('App','text-align:right;'),hd('Sage','text-align:right;'),hd('Diff','text-align:center;'))}
+${row(sub('BOI Account'))}
+${row(td('Dublin Cash (posted)',`color:${Im};padding-left:22px;`),num(txt('sum-app-dublin')),num(txt('sum-sage-dublin')),num(txt('sum-diff-dublin'),ds(txt('sum-diff-dublin'))))}
+${row(td('BOI Cash (posted)',`color:${Im};padding-left:22px;`),num(txt('sum-app-country')),num(txt('sum-sage-country')),num(txt('sum-diff-country'),ds(txt('sum-diff-country'))))}
+${row(td('Contra',`color:${Im};padding-left:22px;`),num(txt('sum-app-contra')),num(txt('sum-sage-contra')),num(txt('sum-diff-contra'),ds(txt('sum-diff-contra'))))}
+${row(td('Bank only (unposted)',`color:${A};padding-left:22px;`),num(txt('sum-app-bankonly'),`color:${A};`),td('—',`text-align:center;color:#8a90a0;`),td('—',`text-align:center;color:#8a90a0;`))}
+${row(tot('Raw BOI Total',`padding-left:22px;`),totN(txt('sum-app-boitotal')),totN(txt('sum-sage-boitotal')),totN(txt('sum-diff-boitotal'),ds(txt('sum-diff-boitotal'))))}
+${sp()}
+${row(sub('HSBC Account'))}
+${row(td('Credit Transfers (CT)',`color:${Im};padding-left:22px;`),num(txt('sum-app-ct')),num(txt('sum-sage-ct')),num(txt('sum-diff-ct'),ds(txt('sum-diff-ct'))))}
+${row(td('Direct Debits (DD)',`color:${Im};padding-left:22px;`),num(txt('sum-app-dd')),num(txt('sum-sage-dd')),num(txt('sum-diff-dd'),ds(txt('sum-diff-dd'))))}
+${sp()}
+${row(sub('Imported Adjustments'))}
+${row(td('Discount (Sett Disc)',`color:${Im};padding-left:22px;`),num(txt('sum-app-disc')),num(txt('sum-sage-disc')),td('—',`text-align:center;color:#8a90a0;`))}
+${row(tot('Total Receipts (net)',`padding-left:22px;color:${N};`),totN(txt('sum-app-hsbcnet'),`color:${N};`),totN(txt('sum-sage-hsbcnet'),`color:${N};`),totN(txt('sum-diff-hsbcnet'),ds(txt('sum-diff-hsbcnet'))))}
+${row(tot('Total Receipts (BOI + HSBC)',`padding-left:22px;color:${N};`),totN(txt('sum-app-totalreceipts'),`color:${N};`),totN(txt('sum-sage-totalreceipts'),`color:${N};`),totN(txt('sum-diff-totalreceipts'),ds(txt('sum-diff-totalreceipts'))))}
+${sp()}${sp()}
+
+${row(sec('Transfer Adjustments'))}
+${row(hd('Item'),hd('Value','text-align:right;'),`<td colspan="2" style="background:${Nb};border:1px solid #d0d4e0;"></td>`)}
+${row(td('+ Bank Charges',`color:${Im};`),num(txt('adj-charges')),nil(),nil())}
+${row(td('− Credit Interest',`color:${Im};`),num(txt('adj-interest')),nil(),nil())}
+${row(tot('Transfer to HSBC',`color:${N};`),totN(txt('sum-app-transfer'),`color:${N};`),nil(),nil())}
+${sp()}${sp()}
+
+${row(sec('Bank Posting Check'))}
+${row(td('',`background:${Nb};border-bottom:2px solid ${N};`),td('HSBC (002)',`font-weight:bold;color:${N};background:${Nb};border-bottom:2px solid ${N};text-align:center;`),td('BOI (005)',`font-weight:bold;color:${N};background:${Nb};border-bottom:2px solid ${N};text-align:center;`),td('',`background:${Nb};border-bottom:2px solid ${N};`))}
+${row(td('Sage statement total',`color:${Im};`),num(txt('bchk-hsbc-input')),num(txt('bchk-boi-input')),td(''))}
+${row(td('CT / BOI Cash',`color:${Im};`),num(txt('bchk-hsbc-ct')),num(txt('bchk-boi-country')),td(''))}
+${row(td('DDS / Dublin Cash',`color:${Im};`),num(txt('bchk-hsbc-dd')),num(txt('bchk-boi-dublin')),td(''))}
+${row(tot('Total'),totN(txt('bchk-hsbc-total')),totN(txt('bchk-boi-total')),td(''))}
+${(()=>{const hv=txt('bchk-hsbc-result'),bv=txt('bchk-boi-diff');return row(tot('Diff'),totN(hv,ds(hv)),totN(bv,ds(bv)),td(''));})()}
+${row(td(''),td(''),td('Contra',`color:${Im};`),num(txt('bchk-boi-contra')))}
+${(()=>{const v=txt('bchk-boi-overall');return row(td(''),td(''),tot('Control Total',`color:${N};`),totN(v,ds(v)));})()}
+${sp()}${sp()}
+
+${row(sec('Sage Import Check'))}
+${row(hd('Item'),hd('Value','text-align:right;'),`<td colspan="2" style="background:${Nb};border:1px solid #d0d4e0;"></td>`)}
+${row(td('Total Receipts from Sage',`color:${Im};`),num(txt('sic-total-sage')),nil(),nil())}
+${row(td('Less Discount',`color:${Im};`),num(txt('sic-less-disc')),nil(),nil())}
+${row(td('Less Rev &amp; Bounces',`color:${Im};`),num(txt('sic-less-rb')),nil(),nil())}
+${row(tot('Net Receipts'),totN(txt('sic-net-total')),nil(),nil())}
+${(()=>{const v=txt('sic-match-status');return row(td('Match to Total Receipts (BOI + HSBC)',`color:${Im};`),num(v,ds(v)),nil(),nil());})()}
+
+</table></body></html>`;
+
+  const blob = new Blob(['﻿' + h], {type:'application/vnd.ms-excel;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Summary_${label.replace(/\s+/g,'_')}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ══ SAGE IMPORT ENGINE ══
