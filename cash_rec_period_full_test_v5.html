@@ -2245,11 +2245,11 @@ function renderHistoryTable(){
     const diffClass = diffOk ? 'hist-ok' : 'hist-bad';
     return `<tr data-period-key="${rec.key}"${isCurrent ? ' style="opacity:.92;"' : ''}>
       <td>${rec.label}${isCurrent ? ' <span class="badge badge-open" style="font-size:9px;">Current</span>' : ''}</td>
-      <td>${fmt0(displayDebtors)}</td>
-      <td>${fmt0(summary.ct)}</td>
-      <td>${fmt0(summary.dd)}</td>
-      <td>${fmt0(summary.factors)}</td>
-      <td>${fmt0(summary.discount)}</td>
+      <td>${fmt2(displayDebtors)}</td>
+      <td>${fmt2(summary.ct)}</td>
+      <td>${fmt2(summary.dd)}</td>
+      <td>${fmt2(summary.factors)}</td>
+      <td>${fmt2(summary.discount)}</td>
       <td class="${diffClass}">${rec.status === 'future' ? '—' : diffOk ? '✓' : fmt2(diffVal)}</td>
       <td><span class="badge ${statusClass}" style="font-size:9px;">${rec.status === 'future' ? 'Future' : rec.status === 'closed' ? 'Closed' : 'Open'}</span></td>
     </tr>`;

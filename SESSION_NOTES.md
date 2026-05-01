@@ -1,37 +1,38 @@
-## Codex Session — 2026-05-01 (continued)
+## Codex Session — 2026-05-01
 
 ### Active File
 - Working file: `cash_rec_period_full_test_v5.html`
-- Publish/live file: `index.html` (not yet promoted this sub-session)
+- Publish/live file: `index.html` (promoted twice this session)
+- Commits pushed:
+  - `2bbcf60` — Deploy v18: Add Debtors Rec XLSX export button and function
+  - `09543d2` — Deploy v19: Add Summary tab XLS export; remove version from browser tab title
+- Live URL: `https://nvspotify0305-hub.github.io/nv-strathroy/`
 
 ### Completed This Session
 
-#### Feature — Summary Tab XLSX Export
+#### Feature — Summary Tab XLS Export
 - Added `↓ Export XLS` button to the Summary tab card header (right side, alongside "Live · vs Sage import")
-- Added `exportSummary()` function (~95 lines) using HTML-to-Excel blob approach (no new CDN required, full color support)
-- Reads all live DOM values: all `sum-app-*`, `sum-sage-*`, `sum-diff-*`, `adj-charges`, `adj-interest`, `sum-app-transfer`, `bchk-hsbc-*`, `bchk-boi-*`, `sic-*` element IDs
-- Exports 4 sections: Receipts Reconciliation, Transfer Adjustments, Bank Posting Check, Sage Import Check
-- Styling: navy section headers, grey column headers with navy underline, grey total rows, green ✓ for balanced diffs, red for non-zero diffs, amber for unposted, Courier New monospace for all amounts
-- Bank Posting Check lays HSBC and BOI side-by-side in 4 columns
+- Added `exportSummary()` function using HTML-to-Excel blob approach (no new CDN, full colour support)
+- Reads all live DOM values: `sum-app-*`, `sum-sage-*`, `sum-diff-*`, `adj-charges`, `adj-interest`, `sum-app-transfer`, `bchk-hsbc-*`, `bchk-boi-*`, `sic-*`
+- Exports 4 sections: Receipts Reconciliation · Transfer Adjustments · Bank Posting Check · Sage Import Check
+- Styling: navy title bar, navy section headers, grey column headers with navy underline, grey total rows, green ✓ for balanced diffs, red for non-zero diffs, amber for unposted, Courier New for all amounts
+- Bank Posting Check: HSBC (002) and BOI (005) side-by-side in 4 columns
 - Filename: `Summary_[Month]_[Year].xls`
-- No data or logic changes
 
-### Previous Session (2026-05-01 earlier)
+#### Polish — Browser Tab Title
+- Removed `v16` version string from `<title>` tag only
+- Tab now shows "Strathroy Dairy — Cash Rec" (no version)
+- Footer and console version strings left unchanged
 
-#### Feature — Debtors Rec XLSX Export
-- Added `↓ Export XLSX` button above the Confirm & Close Month button in the Debtors Rec section (section 2)
-- Added `exportDebtorsRec()` function using existing SheetJS library
-- Reads all live DOM values from `rec-*` element IDs (calculated cells via textContent, manual inputs via .value)
-- HSBC CT block includes indented `Adj` sub-row matching on-screen layout
-- Diff column keeps ✓ for balanced rows, numeric value for differences; strips ▲ triangle icon
-- Title row: `Debtors Reconciliation [Month Label]` pulled from `appSettings.monthLabel`
-- Title cell merged across all 4 columns
+#### Feature — Debtors Rec XLSX Export (earlier in session)
+- Added `↓ Export XLSX` button in Debtors Rec section (section 2)
+- Added `exportDebtorsRec()` using SheetJS; reads all `rec-*` element IDs
 - Filename: `DebtorsRec_[Month]_[Year].xlsx`
-- No changes to data, logic, or other sections
 
 ### Next Session
-1. Smoke-test live export — open April rec, click Export XLSX, verify all rows/values correct
-2. Complete April reconciliation (Dublin Cash office totals, Factors chq HSBC side)
+1. Smoke-test Summary export on live URL — click `↓ Export XLS`, verify all 4 sections, colours, and ✓ ticks
+2. Smoke-test Debtors Rec export — verify all rows/values correct
+3. Complete April reconciliation (Dublin Cash office totals, Factors chq HSBC side)
 
 ---
 
