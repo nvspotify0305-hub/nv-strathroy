@@ -1365,7 +1365,10 @@ footer{
             </tr>
           </tbody>
         </table>
-        <div style="padding:14px 18px;border-top:1px solid var(--border);">
+        <div style="padding:10px 18px 0;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+          <button class="btn" onclick="exportDebtorsRec()" style="font-size:12px;padding:5px 14px;">↓ Export XLSX</button>
+        </div>
+        <div style="padding:10px 18px 14px;">
           <button class="btn btn-green w-full" onclick="showModal('closeModal')" style="padding:10px;font-size:13px;">✓ Confirm &amp; Close Month</button>
         </div>
       </div>
@@ -4353,6 +4356,41 @@ function exportXLSX(type){
     filename='DublinCash_Mar2026.xlsx';
   }
   XLSX.writeFile(wb,filename);
+}
+
+function exportDebtorsRec(){
+  if(typeof XLSX==='undefined'){alert('SheetJS not loaded — check internet connection.');return;}
+  const label = appSettings.monthLabel || monthLabelFor();
+  const txt = id => {
+    const el = document.getElementById(id);
+    if(!el) return '';
+    return (el.tagName === 'INPUT' ? el.value : el.textContent).trim();
+  };
+  const diffTxt = id => txt(id).replace(/▲/g,'').trim();
+  const rows = [
+    [`Debtors Reconciliation ${label}`],
+    [],
+    ['', 'Sage', 'HSBC / Manual', 'Diff'],
+    ['Op balance',                    txt('rec-op-sage'),   txt('rec-op-hsbc'),   diffTxt('rec-op-diff')],
+    ['Factors chq (BOI transfer)',     txt('rec-fac-sage'),  txt('rec-fac-hsbc'),  diffTxt('rec-fac-diff')],
+    ['Discount (from Sage)',           txt('rec-disc-sage'), txt('rec-disc-hsbc'), diffTxt('rec-disc-diff')],
+    ['DDs HSBC',                       txt('rec-dd-sage'),   txt('rec-dd-hsbc'),   diffTxt('rec-dd-diff')],
+    ['HSBC CT',                        txt('rec-ct-sage'),   txt('rec-ct-hsbc'),   diffTxt('rec-ct-diff')],
+    ['  Adj',                          '',                   txt('rec-ct-adjust'),  ''],
+    ['Inv EURO (daybook — manual)',    txt('rec-inv-sage'),  txt('rec-inv-hsbc'),  diffTxt('rec-inv-diff')],
+    ['Credits (daybook — manual)',     txt('rec-cr-sage'),   txt('rec-cr-hsbc'),   diffTxt('rec-cr-diff')],
+    ['Clos balance',                   txt('rec-clos-sage'), txt('rec-clos-hsbc'), diffTxt('rec-clos-diff')],
+    [],
+    ['Closing diff explanation', txt('rec-clos-note')],
+    [],
+    ['Debtors (Sage)', txt('rec-debtors'), '', diffTxt('rec-debtors-diff')],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:34},{wch:16},{wch:16},{wch:12}];
+  ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Debtors Rec');
+  XLSX.writeFile(wb, `DebtorsRec_${label.replace(/\s+/g,'_')}.xlsx`);
 }
 
 // ══ SAGE IMPORT ENGINE ══
