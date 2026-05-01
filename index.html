@@ -822,7 +822,7 @@ footer{
         <hr class="divider">
         <div class="flex justify-between items-center">
           <span class="text-xs text-lt">Month status</span>
-          <span class="text-xs" style="color:var(--amber);font-weight:600;">⏳ Open — closes Mar 31</span>
+          <span class="text-xs" id="dash-month-status" style="color:var(--amber);font-weight:600;">⏅ Open</span>
         </div>
       </div>
     </div>
@@ -3415,6 +3415,20 @@ function renderDashboardExtras(ctx) {
   setTxt('dash-month-label-a', monthLabel);
   setTxt('dash-month-label-b', `Month Totals — ${monthLabel}`);
   setTxt('dash-month-label-c', monthLabel);
+
+  const statusEl = document.getElementById('dash-month-status');
+  if (statusEl) {
+    const rec = periodStore.months[monthKey()];
+    const isClosed = rec && rec.status === 'closed';
+    if (isClosed) {
+      statusEl.textContent = '✓ Closed';
+      statusEl.style.color = 'var(--green)';
+    } else {
+      const lastDay = new Date(curYear, curMonth + 1, 0).getDate();
+      statusEl.textContent = `⏳ Open — closes ${MONTHS[curMonth]} ${lastDay}`;
+      statusEl.style.color = 'var(--amber)';
+    }
+  }
 
   const sageState = window._sageTotals;
   const importStatus = sageState
