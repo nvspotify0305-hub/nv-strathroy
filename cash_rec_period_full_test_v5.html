@@ -4329,33 +4329,94 @@ function exportXLSX(type){
     wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'CT');
     filename='CT_Mar2026.xlsx';
   } else if(type==='dublin'){
-    wb=XLSX.utils.book_new();
-    Object.entries(WE_CONFIG).forEach(([weRef,cfg])=>{
-      const lc=cfg.labels.length;
-      const data=SAMPLE[weRef];
-      const headers=['Acct','Customer',...cfg.labels,'Row Total'];
-      const rows=[headers];
-      CUSTOMERS.forEach((c,i)=>{
-        let rowTotal=0;let hasVal=false;
-        const amts=[];
-        for(let l=0;l<lc;l++){
-          const v=data&&data[i]&&data[i][l]!=null?parseFloat(data[i][l]):null;
-          amts.push(v===null?'':v);
-          if(v!==null){rowTotal+=v;hasVal=true;}
-        }
-        rows.push([c.acct,c.name,...amts,hasVal?rowTotal:'']);
-      });
-      rows.push([]);
-      rows.push(['','Total',...cfg.totals,cfg.totals.reduce((s,v)=>s+v,0)]);
-      rows.push(['','Float',...cfg.floats,'']);
-      rows.push(['','Office total',...cfg.officeTotals,'']);
-      ws=XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols']=[{wch:10},{wch:28},...cfg.labels.map(()=>({wch:12})),{wch:12}];
-      XLSX.utils.book_append_sheet(wb,ws,weRef);
-    });
-    filename='DublinCash_Mar2026.xlsx';
+    exportDublinCash();
+    return;
   }
   XLSX.writeFile(wb,filename);
+}
+
+function exportDublinCash(){
+  const label = appSettings.monthLabel || monthLabelFor();
+  const N='#1B3F8D',W='#ffffff',Np='#e8edf8',Nb='#f0f2f6';
+  const G='#319B4C',R='#B04040',Im='#454a5a',Ik='#1a1c22';
+  const bd='border:1px solid #d0d4e0;';
+  const fa=`font-family:Arial;font-size:10pt;padding:5px 8px;`;
+  const fm=`font-family:'Courier New',monospace;font-size:10pt;padding:5px 8px;text-align:right;`;
+  const fmono = v => `<td style="${bd}${fm}">${v}</td>`;
+  const flab  = (v,s='') => `<td style="${bd}${fa}${s}">${v}</td>`;
+  const fhd   = (v,s='') => `<td style="${bd}${fa}font-weight:bold;background:${Nb};color:${Ik};border-bottom:2px solid ${N};${s}">${v}</td>`;
+  const ftot  = (v,s='') => `<td style="${bd}${fm}font-weight:bold;background:${Nb};${s}">${v}</td>`;
+  const flabt = (v,s='') => `<td style="${bd}${fa}font-weight:bold;background:${Nb};${s}">${v}</td>`;
+  const fmtE  = v => v==null||v===''?'':v.toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const sp    = cols => `<tr><td colspan="${cols}" style="height:6px;border:none;background:white;padding:0;"></td></tr>`;
+
+  const sections = Object.entries(WE_CONFIG).map(([weRef,cfg])=>{
+    const lc = cfg.labels.length;
+    const colHeaders = cfg.labels.map((lbl,i)=> (cfg.dates&&cfg.dates[i]&&cfg.dates[i].trim()) ? cfg.dates[i].trim() : lbl);
+    const data = SAMPLE[weRef];
+    const totalCols = 2 + lc + 1; // Acct + Name + lodgements + Row Total
+    const status = cfg.posted ? `Posted ${cfg.postDate||''}` : 'Unposted';
+    const statusCol = cfg.posted ? `color:${G};` : `color:${R};`;
+
+    let html = '';
+    // WE batch header
+    html += `<tr><td colspan="${totalCols}" style="${bd}${fa}font-size:12pt;font-weight:bold;background:${N};color:${W};padding:8px 10px;">`;
+    html += `Dublin Cash — ${weRef} &nbsp;<span style="font-size:10pt;font-weight:normal;">${status}</span></td></tr>`;
+
+    // Column headers
+    html += `<tr>${fhd('Acct')}${fhd('Customer')}${colHeaders.map(h=>fhd(h,`text-align:center;`)).join('')}${fhd('Row Total','text-align:right;')}</tr>`;
+
+    // Customer rows
+    CUSTOMERS.forEach((c,i)=>{
+      let rowTotal=0; let hasVal=false;
+      const amts=[];
+      for(let l=0;l<lc;l++){
+        const v=data&&data[i]&&data[i][l]!=null?parseFloat(data[i][l]):null;
+        amts.push(v);
+        if(v!==null){rowTotal+=v;hasVal=true;}
+      }
+      const rowBg = i%2===0?'':'background:#f9fafc;';
+      html += `<tr>`;
+      html += `<td style="${bd}${fa}font-family:'Courier New',monospace;${rowBg}">${c.acct}</td>`;
+      html += `<td style="${bd}${fa}${rowBg}">${c.name}</td>`;
+      amts.forEach(v=>{ html += `<td style="${bd}${fm}${rowBg}">${v!=null?fmtE(v):''}</td>`; });
+      html += `<td style="${bd}${fm}${rowBg}font-weight:600;">${hasVal?fmtE(rowTotal):''}</td>`;
+      html += `</tr>`;
+    });
+
+    // Footer rows
+    html += sp(totalCols);
+    const grandTotal = cfg.totals.reduce((s,v)=>s+(v||0),0);
+    html += `<tr>${flabt('Total')}${flabt('')}${cfg.totals.map(v=>ftot(fmtE(v||0))).join('')}${ftot(fmtE(grandTotal))}</tr>`;
+    html += `<tr>${flabt('Opening float')}${flabt('')}${cfg.floats.map(v=>ftot(fmtE(v||0))).join('')}${ftot('')}</tr>`;
+    html += `<tr>${flabt('Office total')}${flabt('')}${cfg.officeTotals.map(v=>ftot(fmtE(v||0))).join('')}${ftot('')}</tr>`;
+
+    // Diff row: (Total + Float) - Office total per column
+    const diffs = cfg.totals.map((_,i)=>((cfg.totals[i]||0)+(cfg.floats[i]||0))-(cfg.officeTotals[i]||0));
+    html += `<tr>${flabt('Diff')}${flabt('')}${diffs.map(d=>{
+      const ok=Math.abs(d)<0.005;
+      const ds=ok?`color:${G};font-weight:bold;`:`color:${R};font-weight:bold;`;
+      return `<td style="${bd}${fm}background:${Nb};${ds}">${ok?'✓':fmtE(d)}</td>`;
+    }).join('')}${ftot('')}</tr>`;
+
+    return html;
+  });
+
+  const colCount = Math.max(...Object.values(WE_CONFIG).map(cfg=>2+cfg.labels.length+1));
+  const joined = sections.join(sp(colCount)+sp(colCount));
+  const fullHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body>
+<table style="border-collapse:collapse;">
+<tr><td colspan="${colCount}" style="${bd}${fa}font-size:13pt;font-weight:bold;background:${N};color:${W};text-align:center;padding:10px;">Dublin Cash Lodgements — ${label}</td></tr>
+${sp(colCount)}
+${joined}
+</table></body></html>`;
+
+  const blob = new Blob([fullHtml],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `DublinCash_${label.replace(/\s+/g,'_')}.xls`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function exportDebtorsRec(){
