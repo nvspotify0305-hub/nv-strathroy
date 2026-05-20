@@ -101,6 +101,7 @@ body::before{
 .nav-btn.active{color:var(--white);border-bottom-color:var(--green);background:rgba(255,255,255,0.10);}
 
 .month-bar{display:flex;align-items:center;gap:10px;margin-left:auto;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.14);}
+.month-refresh{font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.68);min-width:94px;text-align:left;}
 .top-lock-btn{padding:7px 14px;border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.10);color:var(--white);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s,transform .15s;}
 .top-lock-btn:hover{background:rgba(255,255,255,0.18);transform:translateY(-1px);}
 .m-btn{
@@ -787,6 +788,7 @@ footer{
     <div class="m-disp" id="monthDisp">Mar 2026</div>
     <button class="m-btn" id="nextMonth">►</button>
     <span class="badge badge-open" id="statusBadge">Open</span>
+    <span class="month-refresh" id="lastRefresh">Updated --:--</span>
     <button class="close-btn" id="closeMonthBtn">Close Month</button>
     <button class="settings-gear" id="settingsBtn" onclick="toggleSettings()" title="Settings">⚙</button>
     <button class="top-lock-btn" id="lockBtn" type="button" title="Lock this app">Lock</button>
@@ -1777,6 +1779,45 @@ function nextMonthRef(month=curMonth, year=curYear){
 function prevMonthRef(month=curMonth, year=curYear){
   return month === 0 ? { month:11, year:year-1 } : { month:month-1, year };
 }
+function parsePeriodDate(value, fallbackYear=curYear){
+  if(value instanceof Date && !isNaN(value)) return value;
+  const raw = String(value || '').trim();
+  if(!raw) return null;
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(raw);
+  if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(raw);
+  if(m){
+    const y = Number(m[3].length === 2 ? '20' + m[3] : m[3]);
+    return new Date(y, Number(m[2])-1, Number(m[1]));
+  }
+  m = /^(\d{1,2})\s+([A-Za-z]{3,9})(?:\s+(\d{2,4}))?$/.exec(raw);
+  if(m){
+    const monthName = m[2].toLowerCase().slice(0,3);
+    const month = MONTHS.findIndex(name => name.toLowerCase().slice(0,3) === monthName);
+    if(month >= 0){
+      const y = m[3] ? Number(m[3].length === 2 ? '20' + m[3] : m[3]) : Number(fallbackYear);
+      return new Date(y, month, Number(m[1]));
+    }
+  }
+  return null;
+}
+function isCurrentPeriodDate(value){
+  const d = parsePeriodDate(value);
+  return !!d && d.getMonth() === curMonth && d.getFullYear() === curYear;
+}
+function periodAlertId(id){
+  return `${monthKey()}-${id}`;
+}
+function isWEInCurrentPeriod(ref, cfg){
+  if(cfg && Array.isArray(cfg.dates) && cfg.dates.some(isCurrentPeriodDate)) return true;
+  if(cfg && isCurrentPeriodDate(cfg.postDate)) return true;
+  const m = /^WE(\d{2})(\d{2})$/.exec(String(ref || '').trim());
+  if(m){
+    const d = new Date(curYear, Number(m[2])-1, Number(m[1]));
+    return d.getMonth() === curMonth && d.getFullYear() === curYear;
+  }
+  return !(cfg && (cfg.postDate || (Array.isArray(cfg.dates) && cfg.dates.some(Boolean))));
+}
 function deepClone(v){
   return JSON.parse(JSON.stringify(v));
 }
@@ -2311,10 +2352,23 @@ function updatePeriodUI(){
   }
   updateCloseModal();
 }
-function refreshMonthDisplay(){
-  updatePeriodUI();
+function updateLastRefreshStatus(){
+  const el = document.getElementById('lastRefresh');
+  if(!el) return;
+  const stamp = new Date().toLocaleTimeString('en-IE',{hour:'2-digit',minute:'2-digit'});
+  el.textContent = `Updated ${stamp}`;
+}
+function refreshLiveViews(options={}){
+  if(!options.skipRecalc) recalcRec();
+  if(!options.skipDaily) renderDailySummary();
+  if(!options.skipBank) renderBankCheck();
   renderDashboard();
   renderHistoryTable();
+  updateLastRefreshStatus();
+}
+function refreshMonthDisplay(){
+  updatePeriodUI();
+  refreshLiveViews({skipRecalc:true, skipDaily:true, skipBank:true});
 }
 function loadPeriodByKey(key){
   const ref = parseMonthKey(key);
@@ -2462,7 +2516,7 @@ function editBoiCell(td,idx,field){
   td.textContent='';
   td.appendChild(inp);
   inp.focus();inp.select();
-  const save=()=>{boiData[idx][field]=inp.value.trim();renderBOI();};
+  const save=()=>{boiData[idx][field]=inp.value.trim();renderBOI();persistAll();};
   inp.addEventListener('blur',save);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')save();if(e.key==='Escape'){boiData[idx][field]=cur;renderBOI();}});
 }
@@ -2480,6 +2534,7 @@ function editBoiAmt(td,idx){
     const n=parseFloat(inp.value.replace(/,/g,''));
     if(!isNaN(n))boiData[idx].amount=n;
     renderBOI();
+    persistAll();
   };
   inp.addEventListener('blur',save);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')save();if(e.key==='Escape')renderBOI();});
@@ -2581,7 +2636,7 @@ function editDdCell(td,idx,field){
   const inp=document.createElement('input');
   inp.className='boi-edit-inp';inp.style.width='100%';inp.value=cur;
   td.textContent='';td.appendChild(inp);inp.focus();inp.select();
-  const save=()=>{ddData[idx][field]=inp.value.trim();renderDD();};
+  const save=()=>{ddData[idx][field]=inp.value.trim();renderDD();persistAll();};
   inp.addEventListener('blur',save);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')save();if(e.key==='Escape'){ddData[idx][field]=cur;renderDD();}});
 }
@@ -2592,7 +2647,7 @@ function editDdAmt(td,idx){
   const inp=document.createElement('input');
   inp.className='boi-edit-inp';inp.value=cur;
   td.textContent='';td.appendChild(inp);inp.focus();inp.select();
-  const save=()=>{const n=parseFloat(inp.value.replace(/,/g,''));if(!isNaN(n))ddData[idx].amount=n;renderDD();};
+  const save=()=>{const n=parseFloat(inp.value.replace(/,/g,''));if(!isNaN(n))ddData[idx].amount=n;renderDD();persistAll();};
   inp.addEventListener('blur',save);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')save();if(e.key==='Escape')renderDD();});
 }
@@ -3259,6 +3314,7 @@ function addCustomer(){
   Object.keys(WE_CONFIG).forEach(we=>buildGrid(we));
   hideModal('addCustModal');
   ['new-cust-acct','new-cust-name'].forEach(id=>document.getElementById(id).value='');
+  persistAll();
 }
 
 // New WE
@@ -3270,6 +3326,7 @@ function createNewWE(){
   SAMPLE[ref]=CUSTOMERS.map(()=>Array(count).fill(null));
   buildDCBlocks();
   hideModal('addLodgeModal');
+  persistAll();
 }
 
 // ══ DEBTORS REC CALC ══
@@ -3409,7 +3466,7 @@ function setReminderDone(key, done) {
   appSettings.reminderState = appSettings.reminderState || {};
   appSettings.reminderState[key] = !!done;
   saveSettings();
-  renderDashboard();
+  refreshLiveViews({skipRecalc:true, skipDaily:true, skipBank:true});
 }
 
 function renderDashboardExtras(ctx) {
@@ -3790,6 +3847,8 @@ function renderDashboard() {
   });
   renderRecentActivity();
   renderDynamicAlerts();
+  detectCTMissingDays();
+  updateLastRefreshStatus();
 }
 
 function renderDynamicAlerts(){
@@ -3814,28 +3873,29 @@ function renderDynamicAlerts(){
 
   // Unposted WE batches
   Object.entries(WE_CONFIG).forEach(([ref, cfg]) => {
-    if(!cfg.posted){
+    if(!cfg.posted && isWEInCurrentPeriod(ref, cfg)){
       const lodgeCount = cfg.totals.filter(t => t > 0).length;
       const total = cfg.totals.reduce((s,v)=>s+v,0);
-      html += mkAlert('we-'+ref, 'dot-warn',
+      html += mkAlert(periodAlertId('we-'+ref), 'dot-warn',
         `<strong>${ref} not posted</strong> — ${lodgeCount} lodgement${lodgeCount!==1?'s':''} · €${total.toLocaleString('en-IE',{minimumFractionDigits:2})} ready to post to Sage`);
     }
   });
 
   // Pending DDs (not confirmed hit bank)
-  const pendingDDs = ddData.filter(r => !r._confirmed);
+  const pendingDDs = ddData.filter(r => !r._confirmed && isCurrentPeriodDate(r.date));
   if(pendingDDs.length){
     const pendTotal = pendingDDs.reduce((s,r)=>s+r.amount,0);
-    html += mkAlert('dd-pending', 'dot-info',
+    html += mkAlert(periodAlertId('dd-pending'), 'dot-info',
       `<strong>${pendingDDs.length} DD${pendingDDs.length!==1?'s':''} pending bank confirmation</strong> — €${Math.abs(pendTotal).toLocaleString('en-IE',{minimumFractionDigits:2})} unconfirmed`);
   }
 
   // Recent CT — last paste date
-  if(ctDays.length){
-    const sorted = [...ctDays].sort((a,b)=>b.date.localeCompare(a.date));
+  const currentCTDays = ctDays.filter(d => isCurrentPeriodDate(d.date));
+  if(currentCTDays.length){
+    const sorted = [...currentCTDays].sort((a,b)=>(parsePeriodDate(b.date) || 0) - (parsePeriodDate(a.date) || 0));
     const last = sorted[0];
-    html += mkAlert('ct-last', 'dot-ok',
-      `<strong>CT last entry: ${last.date}</strong> — ${ctDays.length} day${ctDays.length!==1?'s':''} · €${ctDays.reduce((s,d)=>s+d.total,0).toLocaleString('en-IE',{minimumFractionDigits:2})} total`);
+    html += mkAlert(periodAlertId('ct-last'), 'dot-ok',
+      `<strong>CT last entry: ${last.date}</strong> — ${currentCTDays.length} day${currentCTDays.length!==1?'s':''} · €${currentCTDays.reduce((s,d)=>s+d.total,0).toLocaleString('en-IE',{minimumFractionDigits:2})} total`);
   }
 
   container.innerHTML = html || '<div style="padding:8px 0;color:var(--ink-lt);font-size:13px;">No active alerts.</div>';
@@ -3880,10 +3940,17 @@ function detectCTMissingDays(){
   const now=new Date();
   const year=curYear||now.getFullYear();
   const month=curMonth!==undefined?curMonth:now.getMonth();
-  const today=new Date(year,month,now.getDate()<28?now.getDate():28);
+  const rec=getPeriodRecord && getPeriodRecord();
+  if(rec && rec.status === 'future'){
+    updateAlertCount();
+    return;
+  }
+  const isViewedCurrentMonth=year===now.getFullYear()&&month===now.getMonth();
+  const scanEndDay=isViewedCurrentMonth?now.getDate():new Date(year,month+1,0).getDate();
+  const today=new Date(year,month,scanEndDay);
 
   // Get all CT dates as dd/mm/yyyy strings
-  const ctDateSet=new Set(ctDays.map(d=>d.date));
+  const currentCTDays=ctDays.filter(d=>isCurrentPeriodDate(d.date));
 
   const missing=[];
   const d=new Date(year,month,1);
@@ -3894,17 +3961,14 @@ function detectCTMissingDays(){
         +String(d.getMonth()+1).padStart(2,'0')+'/'
         +d.getFullYear();
       // Check if any CT day matches this date
-      const found=ctDays.some(ct=>{
-        // CT_DAYS dates can be in dd/mm/yyyy format
-        return ct.date===dstr;
-      });
+      const found=currentCTDays.some(ct=>isSameDay(parsePeriodDate(ct.date), d));
       if(!found)missing.push(dstr);
     }
     d.setDate(d.getDate()+1);
   }
 
   missing.forEach(dateStr=>{
-    const alertId='ct-miss-'+dateStr.replace(/\//g,'');
+    const alertId=periodAlertId('ct-miss-'+dateStr.replace(/\//g,''));
     if(dismissedAlerts.has(alertId))return;
     const div=document.createElement('div');
     div.className='alert-item';
@@ -5694,8 +5758,7 @@ function saveTransfer() {
   if (ch) ch.value = appSettings.bankCharges.toFixed(2);
   if (ci) ci.value = appSettings.creditInterest.toFixed(2);
   saveSettings();
-  renderDashboard();
-  renderDailySummary();
+  refreshLiveViews();
 }
 
 function saveInlineTransferAdjustments() {
@@ -5706,7 +5769,7 @@ function saveInlineTransferAdjustments() {
   if (cfgCharges) cfgCharges.value = appSettings.bankCharges.toFixed(2);
   if (cfgInterest) cfgInterest.value = appSettings.creditInterest.toFixed(2);
   saveSettings();
-  renderDashboard();
+  refreshLiveViews();
 }
 
 function saveBankCheckInputs() {
@@ -5971,7 +6034,7 @@ function importBackupFromFile(file) {
 }
 
 function persistAll() {
-  renderDashboard();
+  refreshLiveViews();
   if(periodStateReady){
     syncCurrentPeriodRecord();
     dbSave(DB_KEYS.periods, periodStore);
