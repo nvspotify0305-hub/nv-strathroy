@@ -5625,18 +5625,31 @@ let appSettings = {...SETTINGS_DEFAULTS};
 const LOCK_PASSWORD = 'Pass01';
 const LOCK_IDLE_MS = 30 * 60 * 1000;
 const LOCK_SESSION_KEY = 'strathroy_unlock_session_v1';
+const LOCK_REMEMBER_MS = LOCK_IDLE_MS;
 let lockTimer = null;
 let appUnlocked = false;
 
 function getLockEl(id){ return document.getElementById(id); }
 function rememberUnlockState(unlocked) {
   try {
-    if (unlocked) sessionStorage.setItem(LOCK_SESSION_KEY, '1');
-    else sessionStorage.removeItem(LOCK_SESSION_KEY);
+    if (unlocked) {
+      localStorage.setItem(LOCK_SESSION_KEY, String(Date.now() + LOCK_REMEMBER_MS));
+    } else {
+      localStorage.removeItem(LOCK_SESSION_KEY);
+      sessionStorage.removeItem(LOCK_SESSION_KEY);
+    }
   } catch (e) {}
 }
 function hasRememberedUnlock() {
-  try { return sessionStorage.getItem(LOCK_SESSION_KEY) === '1'; }
+  try {
+    const raw = localStorage.getItem(LOCK_SESSION_KEY) || sessionStorage.getItem(LOCK_SESSION_KEY);
+    const expires = Number(raw);
+    if (!Number.isFinite(expires) || expires <= Date.now()) {
+      rememberUnlockState(false);
+      return false;
+    }
+    return true;
+  }
   catch (e) { return false; }
 }
 
@@ -5692,6 +5705,7 @@ function unlockApp() {
     lockScreen.classList.remove('show');
     lockScreen.setAttribute('aria-hidden', 'true');
   }
+  updateLastRefreshStatus();
   scheduleAutoLock();
 }
 
@@ -6245,10 +6259,12 @@ detectCTMissingDays();
 initPeriodState();
 renderDashboard();
 renderDailySummary();
+updateLastRefreshStatus();
 if (hasRememberedUnlock()) {
   appUnlocked = true;
   document.body.classList.remove('app-locked');
   getLockEl('lockScreen')?.classList.remove('show');
+  getLockEl('lockScreen')?.setAttribute('aria-hidden', 'true');
   scheduleAutoLock();
 } else {
   showLockScreen();
