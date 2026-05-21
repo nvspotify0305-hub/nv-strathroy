@@ -2692,16 +2692,20 @@ function updateDDTotal(){
 }
 
 function addDdRow(){
-  const dateVal=document.getElementById('dd-hits').value;
-  const amt=document.getElementById('dd-amt').value.trim();
-  const ref=document.getElementById('dd-ref').value.trim();
+  const dateInp=document.getElementById('dd-hits');
+  const amtInp=document.getElementById('dd-amt');
+  const refInp=document.getElementById('dd-ref');
+  const dateVal=dateInp.value;
+  const amt=amtInp.value.trim();
+  const ref=refInp.value.trim();
   if(!dateVal||!amt)return;
   const dateDisp=normaliseDateToDisplay(dateVal);
   const n=parseFloat(amt.replace(/,/g,''));
+  if(!Number.isFinite(n))return;
   ddData.push({date:dateDisp,amount:n,ref:ref||'',_id:Date.now(),_confirmed:false});
+  [dateInp,amtInp,refInp].forEach(inp=>inp.value='');
   renderDD();
   persistAll();
-  ['dd-hits','dd-amt','dd-ref'].forEach(id=>document.getElementById(id).value='');
 }
 
 function toggleDdStatus_legacy(btn){
