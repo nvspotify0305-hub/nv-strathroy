@@ -5632,6 +5632,7 @@ const LOCK_SESSION_KEY = 'strathroy_unlock_session_v1';
 const LOCK_REMEMBER_MS = LOCK_IDLE_MS;
 let lockTimer = null;
 let appUnlocked = false;
+let lastUnlockRememberAt = 0;
 
 function getLockEl(id){ return document.getElementById(id); }
 function rememberUnlockState(unlocked) {
@@ -5671,7 +5672,13 @@ function scheduleAutoLock() {
 }
 
 function markAppActivity() {
-  if (appUnlocked) scheduleAutoLock();
+  if (!appUnlocked) return;
+  scheduleAutoLock();
+  const now = Date.now();
+  if (now - lastUnlockRememberAt > 60 * 1000) {
+    lastUnlockRememberAt = now;
+    rememberUnlockState(true);
+  }
 }
 
 function showLockScreen(message='') {
@@ -6266,6 +6273,7 @@ renderDailySummary();
 updateLastRefreshStatus();
 if (hasRememberedUnlock()) {
   appUnlocked = true;
+  rememberUnlockState(true);
   document.body.classList.remove('app-locked');
   getLockEl('lockScreen')?.classList.remove('show');
   getLockEl('lockScreen')?.setAttribute('aria-hidden', 'true');
