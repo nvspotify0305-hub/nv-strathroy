@@ -795,9 +795,9 @@ footer{
   </div>
 </div>
 
-<!-- Storage warning banner (hidden by default, shown if localStorage blocked) -->
+<!-- Storage warning banner (hidden by default, shown if localStorage blocked or full) -->
 <div id="storage-warn" style="display:none;align-items:center;gap:12px;padding:10px 24px;background:#7c2d2d;color:#fff;font-size:13px;font-weight:500;position:sticky;top:58px;z-index:99;">
-  <span>⚠ <strong>Storage blocked</strong> — data will not persist on page reload. Open this file in Chrome or Edge, or move it to a web server.</span>
+  <span>⚠ <strong>Storage problem</strong> — data will not persist on page reload. Browser storage may be blocked or full.</span>
   <button onclick="this.parentElement.style.display='none'" style="margin-left:auto;background:rgba(255,255,255,0.2);border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">Dismiss</button>
 </div>
 <div class="page" id="mainPage">
@@ -5732,9 +5732,8 @@ function lockApp(message='Locked manually.') {
 
 function loadSettings() {
   try {
-    const stored = localStorage.getItem(SETTINGS_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
+    const parsed = dbLoad(SETTINGS_KEY);
+    if (parsed) {
       appSettings = {...SETTINGS_DEFAULTS, ...parsed};
     }
   } catch(e) { console.warn('Settings load failed:', e); }
@@ -5743,7 +5742,7 @@ function loadSettings() {
 
 function saveSettings() {
   try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(appSettings));
+    dbSave(SETTINGS_KEY, appSettings);
     if(periodStateReady){
       syncCurrentPeriodRecord();
       dbSave(DB_KEYS.periods, periodStore);
@@ -5929,6 +5928,14 @@ const DB_KEYS = {
 const _memStore = {};
 let _storageAvailable = null;
 
+function showStorageWarning(message) {
+  const warn = document.getElementById('storage-warn');
+  if (!warn) return;
+  const span = warn.querySelector('span');
+  if (span) span.innerHTML = `⚠ <strong>Storage problem</strong> — ${message}`;
+  warn.style.display = 'flex';
+}
+
 function checkStorage() {
   if (_storageAvailable !== null) return _storageAvailable;
   try {
@@ -5938,24 +5945,34 @@ function checkStorage() {
     _storageAvailable = true;
   } catch(e) {
     _storageAvailable = false;
-    // Show persistent warning banner
-    const warn = document.getElementById('storage-warn');
-    if (warn) warn.style.display = 'flex';
+    showStorageWarning('browser storage is blocked. Data will not persist after reload.');
     console.warn('localStorage unavailable — using in-memory store. Data will not persist on reload.');
   }
   return _storageAvailable;
 }
 
 function dbSave(key, data) {
-  const json = JSON.stringify(data);
+  let json;
+  try { json = JSON.stringify(data); }
+  catch(e) {
+    showStorageWarning(`could not prepare ${key} for saving. Data will not persist after reload.`);
+    console.warn('Save serialisation failed:', key, e);
+    return false;
+  }
   if (checkStorage()) {
-    try { localStorage.setItem(key, json); }
+    try {
+      localStorage.setItem(key, json);
+      return true;
+    }
     catch(e) {
+      showStorageWarning(`browser storage is full or blocked while saving ${key}. Data will not persist after reload.`);
       console.warn('Save failed (quota?):', key, e);
       _memStore[key] = json;
+      return false;
     }
   } else {
     _memStore[key] = json;
+    return false;
   }
 }
 
@@ -6065,7 +6082,6 @@ function importBackupFromFile(file) {
 }
 
 function persistAll() {
-  refreshLiveViews();
   if(periodStateReady){
     syncCurrentPeriodRecord();
     dbSave(DB_KEYS.periods, periodStore);
@@ -6087,6 +6103,11 @@ function persistAll() {
     dismissed: [...dismissedAlerts],
     snoozed: [...snoozedAlerts]
   });
+  try {
+    refreshLiveViews();
+  } catch(e) {
+    console.warn('Post-save refresh failed:', e);
+  }
 }
 
 // Track whether each array was loaded from storage (even if empty)

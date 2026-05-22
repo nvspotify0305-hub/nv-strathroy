@@ -1,3 +1,87 @@
+## Codex Session - 2026-05-22
+
+### Active File
+- Working file: `cash_rec_period_full_test_v5.html`
+- Publish/live file: `index.html` (approved for deploy)
+
+### Completed This Session
+
+#### Cash Rec persistence regression
+- User reported that after the DD add-row clearing fix, nothing in the app persisted after refresh.
+- Investigation found the DD clear-line change itself only moved input clearing inside `addDdRow()` and was not the root persistence break.
+- Root cause was the earlier dashboard/live-refresh change: `persistAll()` refreshed dashboard/history/summary before writing to localStorage, so any render error could stop all saves.
+- First live fix added missing `isSameDay()` for CT missing-day scan.
+- Follow-up hardening changed `persistAll()` so localStorage writes happen before `refreshLiveViews()`, and the post-save refresh is guarded with `try/catch`.
+- `dbSave()` now returns success/failure and shows the storage warning banner if localStorage is blocked, full, or serialization fails.
+- `saveSettings()` now uses the same `dbSave()` path so settings storage failures are visible too.
+
+### Verification
+- Run JS syntax checks on both app files.
+- Test DD add/save path writes `strathroy_mar2026_ddData` and `strathroy_mar2026_periods`.
+- Test forced post-save refresh failure still leaves DD data saved.
+
+### Next Safe Starting Point
+1. If the user still sees no persistence, check whether the visible storage warning banner appears in their browser.
+2. If the banner appears, export/clear browser site storage or reduce saved Sage/period payload size.
+3. Keep save-first behavior; do not put dashboard rendering before localStorage writes again.
+
+---
+
+## Codex Session - 2026-05-20
+
+### Active File
+- Working file: `cash_rec_period_full_test_v5.html`
+- Publish/live file: `index.html` (promoted and pushed live this session)
+- Live URL: `https://nvspotify0305-hub.github.io/nv-strathroy/`
+- Commits pushed:
+  - `d7ce66e` - Fix dashboard alerts and live refresh
+  - `e12e776` - Deploy dashboard alerts and live refresh
+  - `77cdde6` - Fix unlock persistence and refresh timestamp
+
+### Completed This Session
+
+#### Dashboard Alerts + Live Refresh
+- Right-hand Dashboard alerts now filter to the currently viewed month:
+  - unposted WE batches
+  - pending DD confirmations
+  - CT last-entry alert
+  - CT missing weekday scan
+- Added internal period date helpers for dashboard filtering only; no extra noisy alert dates shown.
+- Added `Updated HH:MM` status in the month toolbar.
+- Added shared `refreshLiveViews()` path so postings/edits/import-related changes refresh Dashboard, Daily Summary, Reconciliation, Bank Check, History, and alert count without a browser refresh.
+- User confirmed live deploy works.
+
+#### Lock Screen + Timestamp Follow-up
+- Refresh no longer returns to the lock screen during the 30-minute idle window.
+- Unlock memory moved from session-only storage to localStorage expiry using the existing 30-minute idle duration.
+- Manual `Lock` and idle auto-lock still clear the remembered unlock.
+- `Updated HH:MM` now refreshes on startup and immediately after unlock, so it no longer stays at `--:--`.
+- User confirmed the fix works live.
+
+### Verification
+- Ran inline JavaScript syntax checks on:
+  - `cash_rec_period_full_test_v5.html`
+  - `index.html`
+- Ran `git diff --check`; only existing CRLF warnings appeared.
+- Pulled before deploy/push; `main` was already up to date.
+
+### Local Worktree Notes
+- Current branch: `main`, synced with `origin/main`.
+- Untracked local files remain intentionally untouched:
+  - `AGENTS.md`
+  - `apr 26.xlsx`
+  - `error images/`
+  - `images/Logo Official.original.jpg`
+  - `project-intelligence.skill`
+  - `tasks/todo.md`
+
+### Next Session
+1. If dashboard alerts still look odd, inspect localStorage period snapshots for stale March data in the current month record.
+2. Continue April/May reconciliation work as normal.
+3. Do not edit `index.html` unless user explicitly approves another deploy.
+
+---
+
 ## Codex Session — 2026-05-01
 
 ### Active File
