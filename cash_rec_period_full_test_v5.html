@@ -1805,6 +1805,12 @@ function isCurrentPeriodDate(value){
   const d = parsePeriodDate(value);
   return !!d && d.getMonth() === curMonth && d.getFullYear() === curYear;
 }
+function isSameDay(a, b){
+  return a instanceof Date && !isNaN(a) && b instanceof Date && !isNaN(b) &&
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+}
 function periodAlertId(id){
   return `${monthKey()}-${id}`;
 }
