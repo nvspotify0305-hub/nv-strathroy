@@ -339,7 +339,7 @@ input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0.5;cursor:poi
 .summary-panel-sub{font-size:11px;color:var(--ink-lt);}
 .summary-note{padding:0 16px 12px;font-size:11px;color:var(--ink-lt);line-height:1.45;}
 .summary-kicker{padding:14px 16px 4px;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--navy);}
-.summary-adjust-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px;}
+.summary-adjust-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:16px;}
 .summary-adjust-box{padding:12px 14px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);}
 .summary-adjust-box.output{background:var(--navy-pale);border-color:var(--border-md);}
 .summary-adjust-lbl{font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--ink-lt);margin-bottom:6px;}
@@ -845,6 +845,7 @@ footer{
             <div><div class="text-xs text-lt mb-4">BOI Transfer to HSBC</div><div class="mono fw-6" id="dash-transfer">€0</div></div>
             <div style="text-align:right;"><div class="text-xs text-lt mb-4">+ Bank charges</div><div class="mono" id="dash-charges-disp">+€17.50</div></div>
             <div style="text-align:right;"><div class="text-xs text-lt mb-4">- Credit interest</div><div class="mono" id="dash-interest-disp">0.00</div></div>
+            <div style="text-align:right;"><div class="text-xs text-lt mb-4">- PL deducted</div><div class="mono" id="dash-pl-deduction-disp">0.00</div></div>
             <div style="text-align:right;"><div class="text-xs text-lt mb-4">Raw BOI</div><div class="mono" id="dash-raw-boi">€0</div></div>
           </div>
         </div>
@@ -882,6 +883,7 @@ footer{
         <div class="stat-label" style="margin-bottom:10px;">HSBC Adjustments Mar</div>
         <div class="flex justify-between mb-8"><span class="text-xs text-lt">Bank charges (2×8.75)</span><span class="mono text-xs" id="dash-alert-charges">+€17.50</span></div>
         <div class="flex justify-between mb-8"><span class="text-xs text-lt">Credit interest</span><span class="mono text-xs text-lt" id="dash-alert-interest">none</span></div>
+        <div class="flex justify-between mb-8"><span class="text-xs text-lt">PL deducted from SL</span><span class="mono text-xs text-lt" id="dash-alert-pl-deduction">none</span></div>
         <hr class="divider">
         <div class="flex justify-between"><span class="text-xs fw-6">Net adjustment</span><span class="mono text-xs fw-6" id="dash-alert-netadj">+€17.50</span></div>
       </div>
@@ -1007,10 +1009,15 @@ footer{
                 <input class="inp-inline" value="0.00" id="adj-interest" oninput="saveInlineTransferAdjustments();renderDailySummary();recalcRec();" style="width:100%;text-align:right;">
                 <div class="summary-inline-help">Use the HSBC statement value for this month.</div>
               </div>
+              <div class="summary-adjust-box">
+                <div class="summary-adjust-lbl">- PL Deducted from SL</div>
+                <input class="inp-inline" value="0.00" id="adj-pl-deduction" oninput="saveInlineTransferAdjustments();renderDailySummary();recalcRec();" style="width:100%;text-align:right;">
+                <div class="summary-inline-help">Purchase ledger offset already retained in HSBC.</div>
+              </div>
               <div class="summary-adjust-box output">
                 <div class="summary-adjust-lbl">Transfer to HSBC</div>
                 <div class="summary-adjust-val" id="sum-app-transfer">—</div>
-                <div class="summary-inline-help">BOI receipts plus bank charges less credit interest.</div>
+                <div class="summary-inline-help">BOI receipts plus charges less interest and PL offsets.</div>
               </div>
             </div>
           </div>
@@ -1312,7 +1319,7 @@ footer{
               <td class="num" id="rec-fac-hsbc">0.00</td>
               <td class="diff-ok" id="rec-fac-diff">0.00</td>
             </tr>
-            <tr class="warn-row" id="rec-charges-note" style="display:none;"><td colspan="4">⚠ Diff = bank charges · nets to zero with CT row ✓</td></tr>
+            <tr class="warn-row" id="rec-charges-note" style="display:none;"><td colspan="4">⚠ Diff = transfer adjustments · check bank charges, interest, and PL offsets</td></tr>
             <tr>
               <td class="lbl">Discount <span style="font-size:10px;color:var(--ink-lt);">(from Sage)</span></td>
               <td class="num" id="rec-disc-sage">0.00</td>
@@ -1684,8 +1691,13 @@ footer{
       <div class="sfield-input"><span style="font-size:12px;color:var(--ink-lt);margin-right:4px;">€</span><input class="inp mono" id="cfg-credit-interest" style="width:100px;" placeholder="0.00"></div>
     </div>
     <div class="settings-field-row">
+      <div class="sfield-label">PL deducted from SL</div>
+      <div class="sfield-desc">Purchase ledger offset already retained in HSBC — deducted from transfer total</div>
+      <div class="sfield-input"><span style="font-size:12px;color:var(--ink-lt);margin-right:4px;">€</span><input class="inp mono" id="cfg-pl-deduction" style="width:100px;" placeholder="0.00"></div>
+    </div>
+    <div class="settings-field-row">
       <div class="sfield-label">Transfer formula</div>
-      <div class="sfield-desc" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--navy);background:var(--navy-pale);padding:6px 10px;border-radius:4px;margin-top:4px;">BOI Dublin Cash + BOI Cash + Bank Charges − Credit Interest = Transfer to HSBC</div>
+      <div class="sfield-desc" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--navy);background:var(--navy-pale);padding:6px 10px;border-radius:4px;margin-top:4px;">BOI Dublin Cash + BOI Cash + Bank Charges − Credit Interest − PL Deducted from SL = Transfer to HSBC</div>
     </div>
     <button class="btn btn-primary btn-sm" style="margin-top:12px;" onclick="saveTransfer()">Save</button>
   </div>
@@ -1835,6 +1847,7 @@ function cloneSettingsForPeriod(){
     monthLabel: appSettings.monthLabel,
     bankCharges: appSettings.bankCharges,
     creditInterest: appSettings.creditInterest,
+    plDeduction: appSettings.plDeduction,
     bankCheckHsbc002: appSettings.bankCheckHsbc002,
     bankCheckBoi005: appSettings.bankCheckBoi005,
     closingDiffNote: appSettings.closingDiffNote,
@@ -1850,6 +1863,7 @@ function applyPeriodSettings(settings){
   appSettings.monthLabel = settings.monthLabel || monthLabelFor();
   appSettings.bankCharges = Number(settings.bankCharges || 0);
   appSettings.creditInterest = Number(settings.creditInterest || 0);
+  appSettings.plDeduction = Number(settings.plDeduction || 0);
   appSettings.bankCheckHsbc002 = settings.bankCheckHsbc002 || '';
   appSettings.bankCheckBoi005 = settings.bankCheckBoi005 || '';
   appSettings.closingDiffNote = settings.closingDiffNote || '';
@@ -1922,13 +1936,14 @@ function computeStoredSummaryFromSnapshot(snapshot, status='open'){
   const appCountry = (snapshot.boiData || []).filter(r=>r && r.posted).reduce((s,r)=>s + Number(r.amount || 0), 0);
   const charges = Number(settings.bankCharges || 0);
   const interest = Number(settings.creditInterest || 0);
+  const plDeduction = Number(settings.plDeduction || 0);
   const ctAdjust = Number(recInputs.ctAdjust || 0);
   const invSage = Number(recInputs.invSage || 0);
   const invHsbc = Number(recInputs.invHsbc || 0);
   const crSage = Number(recInputs.crSage || 0);
   const crHsbc = Number(recInputs.crHsbc || 0);
   const debtorsInput = Number(recInputs.debtors || 0);
-  const factorsSigned = -(appDublin + appCountry + charges - interest);
+  const factorsSigned = -(appDublin + appCountry + charges - interest - plDeduction);
   const discountSigned = -Number(snapshot.sageTotals && snapshot.sageTotals.disc || 0);
   const closSage = opening + factorsSigned + discountSigned - dd - ct + invSage + crSage;
   const closHsbc = opening + factorsSigned + discountSigned - dd - ct + ctAdjust + invHsbc + crHsbc;
@@ -1983,6 +1998,7 @@ function buildEmptyFutureSnapshot(openingBalance, month, year, openingHsbc=openi
       monthLabel: monthLabelFor(month, year),
       bankCharges: 0,
       creditInterest: 0,
+      plDeduction: 0,
       bankCheckHsbc002: '',
       bankCheckBoi005: '',
       closingDiffNote: '',
@@ -2073,7 +2089,8 @@ function snapshotNeedsFreshOpenMonthReset(snapshot, month, year){
     (snapshot.sageAllRows || []).length ||
     !!snapshot.sageTotals ||
     Math.abs(Number(snapshot.settings && snapshot.settings.bankCharges || 0)) > 0.005 ||
-    Math.abs(Number(snapshot.settings && snapshot.settings.creditInterest || 0)) > 0.005;
+    Math.abs(Number(snapshot.settings && snapshot.settings.creditInterest || 0)) > 0.005 ||
+    Math.abs(Number(snapshot.settings && snapshot.settings.plDeduction || 0)) > 0.005;
   return !!hasStaleCarryover;
 }
 function snapshotLooksLikeFreshOpenMonth(snapshot){
@@ -3587,7 +3604,7 @@ function renderDashboardExtras(ctx) {
       note: 'Check the sales-payment total imported from Sage before close.'
     },
     {
-      title: 'Confirm bank charges and credit interest',
+      title: 'Confirm bank charges, interest, and PL offsets',
       due: monthEnd,
       note: 'Verify HSBC manual adjustments are entered and explained.'
     }
@@ -3712,12 +3729,13 @@ function recalcRec(){
   const ctAdjust = getMoneyInputValue('rec-ct-adjust', 0);
   // DD: sum of all ddData
   const appDD = ddData.reduce((s,r) => s + r.amount, 0);
-  // Factors chq: Dublin Cash posted + Country Cash posted + bank charges - credit interest
+  // Factors chq: Dublin Cash posted + Country Cash posted + bank charges - credit interest - PL deduction
   const appDublin = Object.values(WE_CONFIG).reduce((s,cfg) => s + cfg.totals.reduce((a,v) => a+v, 0), 0);
   const appCountry = boiData.filter(r => r.posted).reduce((s,r) => s + r.amount, 0);
   const charges = getMoneyInputValue('adj-charges', appSettings.bankCharges || 0);
   const interest = getMoneyInputValue('adj-interest', appSettings.creditInterest || 0);
-  const appFactors = -(appDublin + appCountry + charges - interest);
+  const plDeduction = getMoneyInputValue('adj-pl-deduction', appSettings.plDeduction || 0);
+  const appFactors = -(appDublin + appCountry + charges - interest - plDeduction);
 
   // Update HSBC/Manual column display cells
   const setCell = (id, val) => {
@@ -3754,16 +3772,17 @@ function recalcRec(){
 
   setDiff('rec-op-diff', opHsbc, opSage);
 
-  // Factors diff — note: Sage Factors = -(Cash+Country raw), HSBC = -(Cash+Country+charges)
+  // Factors diff — note: Sage Factors = -(Cash+Country raw), HSBC includes transfer adjustments.
   const facSage = getNum('rec-fac-sage');
   const facHsbc = appFactors;
   setDiff('rec-fac-diff', facHsbc, facSage);
 
-  // Show charges note if factors diff = charges amount
+  // Show transfer-adjustment note if factors diff matches the net manual adjustment.
   const chargesNote = document.getElementById('rec-charges-note');
   if (chargesNote) {
     const facDiff = Math.abs(facHsbc - facSage);
-    chargesNote.style.display = (facDiff > 0.005 && Math.abs(facDiff - charges) < 0.01) ? '' : 'none';
+    const netTransferAdjust = Math.abs(charges - interest - plDeduction);
+    chargesNote.style.display = (facDiff > 0.005 && Math.abs(facDiff - netTransferAdjust) < 0.01) ? '' : 'none';
   }
 
   setDiff('rec-disc-diff', discSage, discSage); // always 0 — same source
@@ -3810,11 +3829,12 @@ function renderDashboard() {
   const appBankOnly= boiData.filter(r=>!r.posted).reduce((s,r) => s + r.amount, 0);
   const charges    = getMoneyInputValue('adj-charges', appSettings.bankCharges || 0);
   const interest   = getMoneyInputValue('adj-interest', appSettings.creditInterest || 0);
+  const plDeduction = getMoneyInputValue('adj-pl-deduction', appSettings.plDeduction || 0);
   const rawBOI     = appDublin + appCountry;
-  const transfer   = rawBOI + charges - interest;
+  const transfer   = rawBOI + charges - interest - plDeduction;
   const sageDisc   = window._sageTotals ? (window._sageTotals.disc || 0) : 0;
   const sageRBRef  = window._sageTotals ? (window._sageTotals.spReference || 0) : 0;
-  const netAdjust  = charges - interest;
+  const netAdjust  = charges - interest - plDeduction;
 
   // Opening balance from settings or Section 2
   const openingEl  = document.getElementById('rec-op-sage');
@@ -3844,8 +3864,10 @@ function renderDashboard() {
   setTxt('dash-raw-boi',     fmt2(rawBOI));
   setTxt('dash-charges-disp','+€'+charges.toFixed(2));
   setTxt('dash-interest-disp', interest === 0 ? '0.00' : '-€'+interest.toFixed(2));
+  setTxt('dash-pl-deduction-disp', plDeduction === 0 ? '0.00' : '-€'+plDeduction.toFixed(2));
   setTxt('dash-alert-charges', '+€'+charges.toFixed(2));
   setTxt('dash-alert-interest', interest === 0 ? 'none' : '-€'+interest.toFixed(2));
+  setTxt('dash-alert-pl-deduction', plDeduction === 0 ? 'none' : '-€'+plDeduction.toFixed(2));
   setTxt('dash-alert-netadj', fmtSignedMoney(netAdjust));
   renderDashboardExtras({
     appCT,
@@ -4587,6 +4609,7 @@ ${row(sec('Transfer Adjustments'))}
 ${row(hd('Item'),hd('Value','text-align:right;'),`<td colspan="2" style="background:${Nb};border:1px solid #d0d4e0;"></td>`)}
 ${row(td('+ Bank Charges',`color:${Im};`),num(txt('adj-charges')),nil(),nil())}
 ${row(td('− Credit Interest',`color:${Im};`),num(txt('adj-interest')),nil(),nil())}
+${row(td('− PL Deducted from SL',`color:${Im};`),num(txt('adj-pl-deduction')),nil(),nil())}
 ${row(tot('Transfer to HSBC',`color:${N};`),totN(txt('sum-app-transfer'),`color:${N};`),nil(),nil())}
 ${sp()}${sp()}
 
@@ -5389,10 +5412,11 @@ function renderDailySummary() {
   const boiBank  = boiData.filter(r => !r.posted).reduce((s,r) => s + r.amount, 0);
   const charges  = getMoneyInputValue('adj-charges', appSettings.bankCharges || 0);
   const interest = getMoneyInputValue('adj-interest', appSettings.creditInterest || 0);
+  const plDeduction = getMoneyInputValue('adj-pl-deduction', appSettings.plDeduction || 0);
   const appContra = st ? (st.contra || 0) : null;
   const appCountryNet = appCountry - (appContra || 0);
   const rawBOI = appDublin + appCountry;
-  const transfer = rawBOI + charges - interest;
+  const transfer = rawBOI + charges - interest - plDeduction;
 
   // Sage computed values
   const sageBOITotal = (sageDublin !== null && sageCountryGross !== null)
@@ -5619,6 +5643,7 @@ const SETTINGS_DEFAULTS = {
   dupDetect: true,
   bankCharges: 17.50,
   creditInterest: 0.00,
+  plDeduction: 0.00,
   bankCheckHsbc002: '',
   bankCheckBoi005: '',
   closingDiffNote: '',
@@ -5633,18 +5658,16 @@ const SETTINGS_DEFAULTS = {
 
 let appSettings = {...SETTINGS_DEFAULTS};
 const LOCK_PASSWORD = 'Pass01';
-const LOCK_IDLE_MS = 30 * 60 * 1000;
 const LOCK_SESSION_KEY = 'strathroy_unlock_session_v1';
-const LOCK_REMEMBER_MS = LOCK_IDLE_MS;
+const LOCK_REMEMBER_VALUE = 'unlocked';
 let lockTimer = null;
 let appUnlocked = false;
-let lastUnlockRememberAt = 0;
 
 function getLockEl(id){ return document.getElementById(id); }
 function rememberUnlockState(unlocked) {
   try {
     if (unlocked) {
-      localStorage.setItem(LOCK_SESSION_KEY, String(Date.now() + LOCK_REMEMBER_MS));
+      localStorage.setItem(LOCK_SESSION_KEY, LOCK_REMEMBER_VALUE);
     } else {
       localStorage.removeItem(LOCK_SESSION_KEY);
       sessionStorage.removeItem(LOCK_SESSION_KEY);
@@ -5654,12 +5677,14 @@ function rememberUnlockState(unlocked) {
 function hasRememberedUnlock() {
   try {
     const raw = localStorage.getItem(LOCK_SESSION_KEY) || sessionStorage.getItem(LOCK_SESSION_KEY);
+    if (raw === LOCK_REMEMBER_VALUE) return true;
     const expires = Number(raw);
-    if (!Number.isFinite(expires) || expires <= Date.now()) {
-      rememberUnlockState(false);
-      return false;
+    if (Number.isFinite(expires) && expires > Date.now()) {
+      rememberUnlockState(true);
+      return true;
     }
-    return true;
+    rememberUnlockState(false);
+    return false;
   }
   catch (e) { return false; }
 }
@@ -5672,19 +5697,11 @@ function clearLockTimer() {
 }
 
 function scheduleAutoLock() {
-  if (!appUnlocked) return;
   clearLockTimer();
-  lockTimer = setTimeout(() => lockApp('Locked after 30 minutes of inactivity.'), LOCK_IDLE_MS);
 }
 
 function markAppActivity() {
   if (!appUnlocked) return;
-  scheduleAutoLock();
-  const now = Date.now();
-  if (now - lastUnlockRememberAt > 60 * 1000) {
-    lastUnlockRememberAt = now;
-    rememberUnlockState(true);
-  }
 }
 
 function showLockScreen(message='') {
@@ -5760,8 +5777,10 @@ function applySettingsToUI() {
   set('cfg-dup-detect', appSettings.dupDetect);
   set('cfg-bank-charges', appSettings.bankCharges);
   set('cfg-credit-interest', appSettings.creditInterest);
+  set('cfg-pl-deduction', appSettings.plDeduction);
   set('adj-charges', appSettings.bankCharges);
   set('adj-interest', appSettings.creditInterest);
+  set('adj-pl-deduction', appSettings.plDeduction);
   set('bchk-hsbc-input', appSettings.bankCheckHsbc002);
   set('bchk-boi-input', appSettings.bankCheckBoi005);
   set('rec-clos-note', appSettings.closingDiffNote);
@@ -5782,11 +5801,14 @@ function saveThresholds() {
 function saveTransfer() {
   appSettings.bankCharges = parseFloat(document.getElementById('cfg-bank-charges').value) || 0;
   appSettings.creditInterest = parseFloat(document.getElementById('cfg-credit-interest').value) || 0;
+  appSettings.plDeduction = parseFloat(document.getElementById('cfg-pl-deduction').value) || 0;
   // Sync to Summary tab inline inputs
   const ch = document.getElementById('adj-charges');
   const ci = document.getElementById('adj-interest');
+  const pd = document.getElementById('adj-pl-deduction');
   if (ch) ch.value = appSettings.bankCharges.toFixed(2);
   if (ci) ci.value = appSettings.creditInterest.toFixed(2);
+  if (pd) pd.value = appSettings.plDeduction.toFixed(2);
   saveSettings();
   refreshLiveViews();
 }
@@ -5794,10 +5816,13 @@ function saveTransfer() {
 function saveInlineTransferAdjustments() {
   appSettings.bankCharges = getMoneyInputValue('adj-charges', appSettings.bankCharges || 0);
   appSettings.creditInterest = getMoneyInputValue('adj-interest', appSettings.creditInterest || 0);
+  appSettings.plDeduction = getMoneyInputValue('adj-pl-deduction', appSettings.plDeduction || 0);
   const cfgCharges = document.getElementById('cfg-bank-charges');
   const cfgInterest = document.getElementById('cfg-credit-interest');
+  const cfgPlDeduction = document.getElementById('cfg-pl-deduction');
   if (cfgCharges) cfgCharges.value = appSettings.bankCharges.toFixed(2);
   if (cfgInterest) cfgInterest.value = appSettings.creditInterest.toFixed(2);
+  if (cfgPlDeduction) cfgPlDeduction.value = appSettings.plDeduction.toFixed(2);
   saveSettings();
   refreshLiveViews();
 }
