@@ -1517,6 +1517,19 @@ footer{
 </div>
 
 <!-- MULTI-DAY UPLOAD — COUNTRY CASH -->
+<!-- SAGE BOI DRILLDOWN MODAL -->
+<div class="modal-ov" id="sageBoiTxnModal">
+  <div class="modal" style="width:760px;">
+    <div class="modal-title" id="sageBoiTxnTitle">Sage BOI transactions</div>
+    <div class="modal-body" id="sageBoiTxnSub">Filtered Sage rows behind this BOI Cash date/ref.</div>
+    <div id="sageBoiTxnList" style="max-height:430px;overflow:auto;border:1px solid var(--border);border-radius:6px;"></div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn btn-ghost" onclick="hideModal('sageBoiTxnModal')">Close</button>
+      <button class="btn btn-primary" onclick="exportSageBoiTxnDrilldown()">Export XLSX</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-ov" id="multiDayCountryModal">
   <div class="modal" style="width:500px;">
     <div class="modal-title">Multi-Day Upload — BOI Cash</div>
@@ -5253,6 +5266,101 @@ function clearUnclassified() {
 // ── Summary Diff Drill-Down ──
 // Only shown when overall total diff > 0.01
 // Both app and Sage dates normalised to "DD Mon" before comparison
+let sageBoiDrilldownRows = [];
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+function sageBoiDisplayDate(value) {
+  if (!value) return '';
+  if (value instanceof Date) return fmtShortDate(value);
+  return normaliseDateToDisplay(value);
+}
+
+function getSageBoiTxnRows(dateKey, refKey='') {
+  const refNorm = String(refKey || '').trim().toUpperCase();
+  return (sageAllRows || [])
+    .filter(r => r.cls === 'country')
+    .map((r, idx) => ({
+      idx,
+      date: sageBoiDisplayDate(r.date),
+      acct: r.acct || '',
+      type: r.type || '',
+      ref: r.ref || '',
+      amount: -Number(r.net || 0)
+    }))
+    .filter(r => r.date === dateKey && (!refNorm || String(r.ref || '').trim().toUpperCase() === refNorm));
+}
+
+function getSageBoiGroupsForDates(dateKeys) {
+  const wanted = new Set(dateKeys || []);
+  const groups = new Map();
+  (sageAllRows || []).filter(r => r.cls === 'country').forEach(r => {
+    const date = sageBoiDisplayDate(r.date);
+    if (!wanted.has(date)) return;
+    const ref = String(r.ref || '').trim();
+    const key = `${date}||${ref.toUpperCase()}`;
+    if (!groups.has(key)) groups.set(key, { date, ref, count: 0, total: 0 });
+    const group = groups.get(key);
+    group.count += 1;
+    group.total += -Number(r.net || 0);
+  });
+  return [...groups.values()].sort((a,b) => a.date.localeCompare(b.date) || a.ref.localeCompare(b.ref));
+}
+
+function openSageBoiTxnDrilldown(dateKey, refKey='') {
+  const rows = getSageBoiTxnRows(dateKey, refKey);
+  sageBoiDrilldownRows = rows;
+  const total = rows.reduce((s,r) => s + r.amount, 0);
+  const money = n => Number(n || 0).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const title = document.getElementById('sageBoiTxnTitle');
+  const sub = document.getElementById('sageBoiTxnSub');
+  const list = document.getElementById('sageBoiTxnList');
+  if (title) title.textContent = `${dateKey}${refKey ? ' / ' + refKey : ''}`;
+  if (sub) sub.innerHTML = `${rows.length} Sage BOI row${rows.length === 1 ? '' : 's'} · Total <strong>€${money(total)}</strong>`;
+  if (list) {
+    if (!rows.length) {
+      list.innerHTML = '<div style="padding:12px;color:var(--ink-lt);font-size:12px;">No Sage BOI rows found for this filter.</div>';
+    } else {
+      list.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead><tr style="background:var(--bg);color:var(--ink-lt);text-transform:uppercase;letter-spacing:.5px;">
+          <th style="text-align:left;padding:7px 9px;">Date</th>
+          <th style="text-align:left;padding:7px 9px;">Account</th>
+          <th style="text-align:left;padding:7px 9px;">Type</th>
+          <th style="text-align:left;padding:7px 9px;">Ref</th>
+          <th style="text-align:right;padding:7px 9px;">Amount</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(r => `<tr style="border-top:1px solid var(--border);">
+            <td style="padding:7px 9px;font-family:'DM Mono',monospace;">${escapeHtml(r.date)}</td>
+            <td style="padding:7px 9px;"><span class="sd-lbl">${escapeHtml(r.acct)}</span></td>
+            <td style="padding:7px 9px;">${escapeHtml(r.type)}</td>
+            <td style="padding:7px 9px;">${escapeHtml(r.ref)}</td>
+            <td style="padding:7px 9px;text-align:right;font-family:'DM Mono',monospace;">€${money(r.amount)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    }
+  }
+  showModal('sageBoiTxnModal');
+}
+
+function exportSageBoiTxnDrilldown() {
+  if(typeof XLSX==='undefined'){alert('SheetJS not loaded — check internet connection.');return;}
+  if(!sageBoiDrilldownRows.length){alert('No Sage BOI rows to export.');return;}
+  const title = document.getElementById('sageBoiTxnTitle')?.textContent || 'Sage BOI transactions';
+  const rows = [['Date','Account','Type','Ref','Amount']];
+  sageBoiDrilldownRows.forEach(r => rows.push([r.date, r.acct, r.type, r.ref, r.amount]));
+  rows.push([]);
+  rows.push(['Total','','','',sageBoiDrilldownRows.reduce((s,r)=>s+r.amount,0)]);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:12},{wch:12},{wch:8},{wch:24},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sage BOI');
+  XLSX.writeFile(wb, `${title.replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'') || 'Sage_BOI'}_SageRows.xlsx`);
+}
+
 function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
   const elId = 'sum-drill-' + type;
   const el = document.getElementById(elId);
@@ -5323,10 +5431,21 @@ function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
     const money = n => Number(n || 0).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
     const targetDiff = Number(totalDiff || 0);
     const targetText = `${targetDiff >= 0 ? '+' : '-'}&euro;${money(Math.abs(targetDiff))}`;
+    const jsArg = v => String(v || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r?\n/g,' ');
+    const sageGroupLinks = () => {
+      const groups = getSageBoiGroupsForDates([...targetDates]);
+      if (!groups.length) return '';
+      return `<div style="padding:6px 8px 8px;color:var(--ink-mid);font-size:11px;">
+        <div style="font-weight:700;color:var(--navy);margin-bottom:5px;">Open Sage rows for mismatch date/ref:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${groups.slice(0, 10).map(g => `<button class="btn btn-ghost btn-xs" onclick="openSageBoiTxnDrilldown('${jsArg(g.date)}','${jsArg(g.ref)}')">${escHtml(g.date)} · ${escHtml(g.ref || 'No ref')} · €${money(g.total)}</button>`).join('')}
+        </div>
+      </div>`;
+    };
     const noSingle = `<div class="sum-drill-item" style="background:var(--red-pale);">
       <span style="font-weight:700;color:var(--navy);">No single ${targetText} transaction difference found after timing offsets.</span>
       <span style="color:var(--ink-lt);">Check if the remaining difference is rounding or a cents-only entry difference.</span>
-    </div>`;
+    </div>${sageGroupLinks()}`;
     if (!targetDates.size) return noSingle;
 
     const appRows = boiData.filter(r => r.posted).map((r, idx) => ({
