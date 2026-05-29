@@ -5318,9 +5318,16 @@ function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
     return score;
   }
 
-  function buildCountryTransactionRows(visibleMismatches) {
+  function buildCountryTransactionRows(visibleMismatches, totalDiff) {
     const targetDates = new Set((visibleMismatches || []).map(m => m.d));
-    if (!targetDates.size) return '';
+    const money = n => Number(n || 0).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const targetDiff = Number(totalDiff || 0);
+    const targetText = `${targetDiff >= 0 ? '+' : '-'}&euro;${money(Math.abs(targetDiff))}`;
+    const noSingle = `<div class="sum-drill-item" style="background:var(--red-pale);">
+      <span style="font-weight:700;color:var(--navy);">No single ${targetText} transaction difference found after timing offsets.</span>
+      <span style="color:var(--ink-lt);">Check if the remaining difference is rounding or a cents-only entry difference.</span>
+    </div>`;
+    if (!targetDates.size) return noSingle;
 
     const appRows = boiData.filter(r => r.posted).map((r, idx) => ({
       id: `app-${idx}`,
@@ -5385,11 +5392,16 @@ function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
       candidates.push({ d: sageRow.d, app: null, sage: sageRow, delta: -sageRow.amount });
     });
 
-    if (!candidates.length) return '';
+    const closeToTarget = candidates
+      .filter(item => Math.abs(item.delta - targetDiff) < 0.011)
+      .sort((a,b) => Math.abs(a.delta - targetDiff) - Math.abs(b.delta - targetDiff));
 
-    const money = n => Number(n || 0).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
+    if (!closeToTarget.length) {
+      return noSingle;
+    }
+
     const empty = '<span style="color:var(--ink-lt);">&mdash;</span>';
-    return `<div class="sum-drill-hd" style="margin-top:4px;color:var(--navy);">Likely transaction-level cause</div>` +
+    return `<div class="sum-drill-hd" style="margin-top:4px;color:var(--navy);">Possible ${targetText} transaction match</div>` +
       `<div class="sum-drill-item" style="background:transparent;color:var(--ink-lt);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.45px;">
         <span style="width:58px;">Date</span>
         <span style="flex:1.35;min-width:140px;">App ref</span>
@@ -5400,7 +5412,7 @@ function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
         <span style="width:92px;text-align:right;">Sage</span>
         <span style="width:82px;text-align:right;">Diff</span>
       </div>` +
-      candidates.sort((a,b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 8).map(item => {
+      closeToTarget.slice(0, 4).map(item => {
         const appRef = item.app ? escHtml(item.app.ref || 'No ref') : empty;
         const appAcct = item.app && item.app.acct ? `<span class="sd-lbl">${escHtml(item.app.acct)}</span>` : empty;
         const appAmt = item.app ? `&euro;${money(item.app.amount)}` : empty;
@@ -5547,7 +5559,7 @@ function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
     });
     const visibleMismatches = collapseAdjacentDateOffsets(mismatches)
       .sort((x,y) => Math.abs(y.a - y.s) - Math.abs(x.a - x.s));
-    drillHtml = buildCountryTransactionRows(visibleMismatches) || buildDrillRows(visibleMismatches);
+    drillHtml = buildCountryTransactionRows(visibleMismatches, totalDiff);
   }
 
   const diffFmt = totalDiff > 0 ? '+' : '';
