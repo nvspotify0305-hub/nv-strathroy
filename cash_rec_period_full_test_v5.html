@@ -5388,19 +5388,34 @@ function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
     if (!candidates.length) return '';
 
     const money = n => Number(n || 0).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const empty = '<span style="color:var(--ink-lt);">&mdash;</span>';
     return `<div class="sum-drill-hd" style="margin-top:4px;color:var(--navy);">Likely transaction-level cause</div>` +
+      `<div class="sum-drill-item" style="background:transparent;color:var(--ink-lt);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.45px;">
+        <span style="width:58px;">Date</span>
+        <span style="flex:1.35;min-width:140px;">App ref</span>
+        <span style="width:64px;">App rep</span>
+        <span style="width:92px;text-align:right;">App</span>
+        <span style="flex:1.35;min-width:140px;">Sage ref</span>
+        <span style="width:64px;">Sage acct</span>
+        <span style="width:92px;text-align:right;">Sage</span>
+        <span style="width:82px;text-align:right;">Diff</span>
+      </div>` +
       candidates.sort((a,b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 8).map(item => {
-        const appText = item.app
-          ? `${escHtml(item.app.ref || 'No ref')} ${item.app.acct ? `<span class="sd-lbl">${escHtml(item.app.acct)}</span>` : ''} App: â‚¬${money(item.app.amount)}`
-          : 'App: â€”';
-        const sageText = item.sage
-          ? `${escHtml(item.sage.ref || 'No ref')} ${item.sage.acct ? `<span class="sd-lbl">${escHtml(item.sage.acct)}</span>` : ''} Sage: â‚¬${money(item.sage.amount)}`
-          : 'Sage: â€”';
+        const appRef = item.app ? escHtml(item.app.ref || 'No ref') : empty;
+        const appAcct = item.app && item.app.acct ? `<span class="sd-lbl">${escHtml(item.app.acct)}</span>` : empty;
+        const appAmt = item.app ? `&euro;${money(item.app.amount)}` : empty;
+        const sageRef = item.sage ? escHtml(item.sage.ref || 'No ref') : empty;
+        const sageAcct = item.sage && item.sage.acct ? `<span class="sd-lbl">${escHtml(item.sage.acct)}</span>` : empty;
+        const sageAmt = item.sage ? `&euro;${money(item.sage.amount)}` : empty;
         return `<div class="sum-drill-item">
-          <span class="sd-date">${item.d}</span>
-          <span style="flex:1;min-width:180px;">${appText}</span>
-          <span style="flex:1;min-width:180px;">${sageText}</span>
-          <span class="sd-diff ${item.delta > 0 ? 'sd-pos' : 'sd-neg'}">${item.delta > 0 ? '+' : ''}${money(item.delta)}</span>
+          <span class="sd-date" style="width:58px;">${item.d}</span>
+          <span style="flex:1.35;min-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item.app ? escHtml(item.app.ref || 'No ref') : ''}">${appRef}</span>
+          <span style="width:64px;">${appAcct}</span>
+          <span class="mono" style="width:92px;text-align:right;">${appAmt}</span>
+          <span style="flex:1.35;min-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item.sage ? escHtml(item.sage.ref || 'No ref') : ''}">${sageRef}</span>
+          <span style="width:64px;">${sageAcct}</span>
+          <span class="mono" style="width:92px;text-align:right;">${sageAmt}</span>
+          <span class="sd-diff ${item.delta > 0 ? 'sd-pos' : 'sd-neg'}" style="width:82px;text-align:right;">${item.delta > 0 ? '+' : ''}${money(item.delta)}</span>
         </div>`;
       }).join('');
   }
