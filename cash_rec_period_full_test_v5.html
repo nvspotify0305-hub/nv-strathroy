@@ -1839,6 +1839,104 @@ function isWEInCurrentPeriod(ref, cfg){
 function deepClone(v){
   return JSON.parse(JSON.stringify(v));
 }
+const SAGE_ROWS_COMPACT_FORMAT = 'sageRowsCompactV1';
+const SAGE_ROW_COMPACT_COLS = ['ref','type','acct','net','date','cls','_srcFile','_rowIdx','_sessionId'];
+
+function serialiseSageRowDate(value){
+  if(!value) return null;
+  if(value instanceof Date) return value.toISOString();
+  return value;
+}
+
+function compactSageRowsForStorage(rows){
+  if(!Array.isArray(rows)) return rows || [];
+  return {
+    _format: SAGE_ROWS_COMPACT_FORMAT,
+    cols: SAGE_ROW_COMPACT_COLS,
+    rows: rows.map(r => [
+      r && r.ref || '',
+      r && r.type || '',
+      r && r.acct || '',
+      Number(r && r.net || 0),
+      serialiseSageRowDate(r && r.date),
+      r && r.cls || '',
+      r && r._srcFile || '',
+      r && r._rowIdx != null ? r._rowIdx : null,
+      r && r._sessionId != null ? r._sessionId : null
+    ])
+  };
+}
+
+function expandSageRowsFromStorage(value){
+  if(Array.isArray(value)) return value;
+  if(!value || value._format !== SAGE_ROWS_COMPACT_FORMAT || !Array.isArray(value.rows)) return [];
+  return value.rows.map(row => ({
+    ref: row[0] || '',
+    type: row[1] || '',
+    acct: row[2] || '',
+    net: Number(row[3] || 0),
+    date: row[4] || null,
+    cls: row[5] || '',
+    _srcFile: row[6] || '',
+    _rowIdx: row[7] != null ? row[7] : null,
+    _sessionId: row[8] != null ? row[8] : null
+  }));
+}
+
+function reviveSageRowsFromStorage(value){
+  return expandSageRowsFromStorage(value).map(r => ({
+    ...r,
+    date: r.date ? new Date(r.date) : null,
+    _sessionId: r._sessionId ?? null
+  }));
+}
+
+function compactSnapshotForStorage(snapshot){
+  if(!snapshot) return snapshot;
+  return {
+    ...snapshot,
+    sageAllRows: compactSageRowsForStorage(snapshot.sageAllRows || [])
+  };
+}
+
+function expandSnapshotFromStorage(snapshot){
+  if(!snapshot) return snapshot;
+  return {
+    ...snapshot,
+    sageAllRows: expandSageRowsFromStorage(snapshot.sageAllRows || [])
+  };
+}
+
+function compactPeriodStoreForStorage(store){
+  const out = { ...(store || {}), months: {} };
+  Object.entries((store && store.months) || {}).forEach(([key, rec]) => {
+    out.months[key] = {
+      ...rec,
+      snapshot: compactSnapshotForStorage(rec && rec.snapshot)
+    };
+  });
+  return out;
+}
+
+function expandPeriodStoreFromStorage(store){
+  if(!store || !store.months) return store;
+  const out = { ...store, months: {} };
+  Object.entries(store.months || {}).forEach(([key, rec]) => {
+    out.months[key] = {
+      ...rec,
+      snapshot: expandSnapshotFromStorage(rec && rec.snapshot)
+    };
+  });
+  return out;
+}
+
+function savePeriodStoreToStorage(){
+  if(!periodStateReady) return false;
+  const compactStore = compactPeriodStoreForStorage(periodStore);
+  const savedPrimary = dbSave(DB_KEYS.periods, compactStore);
+  const savedLegacy = dbSave(PERIODS_KEY, compactStore);
+  return savedPrimary && savedLegacy;
+}
 function cloneSettingsForPeriod(){
   return {
     openingBalance: appSettings.openingBalance,
@@ -2242,15 +2340,7 @@ function syncCurrentPeriodRecord(statusOverride=null){
 }
 function savePeriods(){
   if(!periodStateReady) return;
-  try {
-    const json = JSON.stringify(periodStore);
-    localStorage.setItem(PERIODS_KEY, json);
-    if (typeof DB_KEYS !== 'undefined' && DB_KEYS.periods) {
-      localStorage.setItem(DB_KEYS.periods, json);
-    }
-  } catch(e) {
-    console.warn('Period save failed:', e);
-  }
+  savePeriodStoreToStorage();
 }
 function normalizePeriodStatuses(){
   const records = Object.values(periodStore.months || {});
@@ -5762,7 +5852,7 @@ function saveSettings() {
     dbSave(SETTINGS_KEY, appSettings);
     if(periodStateReady){
       syncCurrentPeriodRecord();
-      dbSave(DB_KEYS.periods, periodStore);
+      savePeriodStoreToStorage();
     }
     const ind = document.getElementById('settings-saved-indicator');
     if (ind) { ind.style.opacity = '1'; setTimeout(() => ind.style.opacity = '0', 1800); }
@@ -6109,7 +6199,7 @@ function importBackupFromFile(file) {
 function persistAll() {
   if(periodStateReady){
     syncCurrentPeriodRecord();
-    dbSave(DB_KEYS.periods, periodStore);
+    savePeriodStoreToStorage();
   }
   dbSave(DB_KEYS.ctDays, ctDays);
   dbSave(DB_KEYS.ddData, ddData);
@@ -6118,10 +6208,7 @@ function persistAll() {
   dbSave(DB_KEYS.sample, SAMPLE);
   dbSave(DB_KEYS.sageUploads, sageUploads);
   // sageAllRows: Date objects need serialisation
-  dbSave(DB_KEYS.sageAllRows, sageAllRows.map(r => ({
-    ...r,
-    date: r.date ? r.date.toISOString() : null
-  })));
+  dbSave(DB_KEYS.sageAllRows, compactSageRowsForStorage(sageAllRows));
   dbSave(DB_KEYS.customers, CUSTOMERS);
   dbSave(DB_KEYS.typoQueue, typoQueue);
   dbSave(DB_KEYS.alerts, {
@@ -6139,7 +6226,7 @@ function persistAll() {
 let _ctLoaded=false, _ddLoaded=false, _boiLoaded=false;
 
 function loadPersistedData() {
-  const savedPeriods = dbLoad(DB_KEYS.periods) || dbLoad(PERIODS_KEY);
+  const savedPeriods = expandPeriodStoreFromStorage(dbLoad(DB_KEYS.periods) || dbLoad(PERIODS_KEY));
   if(savedPeriods && savedPeriods.months){
     periodStore = savedPeriods;
   }
@@ -6209,15 +6296,11 @@ function loadPersistedData() {
     console.log('Loaded sageUploads:', sageUploads.length);
   }
 
-  const savedRows = dbLoad(DB_KEYS.sageAllRows);
+  const savedRows = reviveSageRowsFromStorage(dbLoad(DB_KEYS.sageAllRows));
   if (savedRows && savedRows.length) {
     sageAllRows.length = 0;
     savedRows.forEach(r => {
-      sageAllRows.push({
-        ...r,
-        date: r.date ? new Date(r.date) : null,
-        _sessionId: r._sessionId ?? null
-      });
+      sageAllRows.push(r);
     });
     console.log('Loaded sageAllRows:', sageAllRows.length);
   }
