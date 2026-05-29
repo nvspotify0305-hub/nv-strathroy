@@ -3535,11 +3535,12 @@ function parseActivityDate(val) {
     const d = new Date(val + 'T00:00:00');
     return isNaN(d.getTime()) ? null : d;
   }
-  const short = /^(\d{1,2})\s+([A-Za-z]{3})$/i.exec(String(val).trim());
+  const short = /^(\d{1,2})[\s-]+([A-Za-z]{3,9})(?:[\s-]+(\d{2,4}))?$/i.exec(String(val).trim());
   if (short) {
     const months = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
     const yrMatch = String(appSettings.monthLabel || '').match(/\b(20\d{2})\b/);
-    const year = yrMatch ? parseInt(yrMatch[1], 10) : new Date().getFullYear();
+    const explicitYear = short[3] ? parseInt(short[3].length === 2 ? '20' + short[3] : short[3], 10) : null;
+    const year = explicitYear || (yrMatch ? parseInt(yrMatch[1], 10) : new Date().getFullYear());
     const monthIdx = months[short[2].slice(0,3).toLowerCase()];
     if (monthIdx === undefined) return null;
     return new Date(year, monthIdx, parseInt(short[1], 10));
@@ -4901,11 +4902,11 @@ function normaliseDateToDisplay(val) {
   }
   if (typeof val === 'string') {
     const s = val.trim();
-    // Already "DD Mon" or "D Mon" e.g. "02 Mar", "2 Mar"
-    if (/^\d{1,2}\s+[A-Za-z]{3}/.test(s)) {
-      // Re-normalise to ensure zero-padded day
-      const parts = s.split(/\s+/);
-      return String(parseInt(parts[0])).padStart(2,'0') + ' ' + parts[1];
+    // Already "DD Mon", "D Mon", or "DD-Mon" e.g. "02 Mar", "2 Mar", "08-May"
+    const mShort = s.match(/^(\d{1,2})[\s-]+([A-Za-z]{3,9})(?:[\s-]+(\d{2,4}))?/);
+    if (mShort) {
+      const monthIdx = _MONTHS_SHORT.findIndex(m => m.toLowerCase() === mShort[2].slice(0,3).toLowerCase());
+      return String(parseInt(mShort[1])).padStart(2,'0') + ' ' + (monthIdx >= 0 ? _MONTHS_SHORT[monthIdx] : mShort[2].slice(0,3));
     }
     // dd/mm/yyyy or d/m/yyyy
     const m1 = s.match(/^(\d{1,2})[\/](\d{1,2})[\/](\d{4})$/);
@@ -5297,6 +5298,113 @@ function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
     }).join('');
   }
 
+  function escHtml(v) {
+    return String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+
+  function cleanRef(v) {
+    return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  function rowMatchScore(appRow, sageRow) {
+    const appRef = cleanRef(appRow.ref);
+    const sageRef = cleanRef(sageRow.ref);
+    const appAcct = cleanRef(appRow.acct);
+    const sageAcct = cleanRef(sageRow.acct);
+    let score = 0;
+    if (appAcct && sageAcct && appAcct === sageAcct) score += 4;
+    if (appRef && sageRef && appRef === sageRef) score += 5;
+    else if (appRef && sageRef && (appRef.includes(sageRef) || sageRef.includes(appRef))) score += 3;
+    return score;
+  }
+
+  function buildCountryTransactionRows(visibleMismatches) {
+    const targetDates = new Set((visibleMismatches || []).map(m => m.d));
+    if (!targetDates.size) return '';
+
+    const appRows = boiData.filter(r => r.posted).map((r, idx) => ({
+      id: `app-${idx}`,
+      d: normaliseDateToDisplay(r.date),
+      ref: r.ref || '',
+      acct: r.rep || '',
+      amount: Number(r.amount || 0),
+      used: false
+    })).filter(r => targetDates.has(r.d));
+
+    const sageRows = (sageAllRows || []).filter(r => r.cls === 'country').map((r, idx) => ({
+      id: `sage-${idx}`,
+      d: toDisplayDate(r.date),
+      ref: r.ref || '',
+      acct: r.acct || '',
+      amount: -Number(r.net || 0),
+      used: false
+    })).filter(r => targetDates.has(r.d));
+
+    appRows.forEach(appRow => {
+      let best = null;
+      sageRows.forEach(sageRow => {
+        if (sageRow.used || sageRow.d !== appRow.d) return;
+        const amountDiff = Math.abs(appRow.amount - sageRow.amount);
+        const refScore = rowMatchScore(appRow, sageRow);
+        if (amountDiff >= 0.005) return;
+        const score = refScore * 1000 - amountDiff;
+        if (!best || score > best.score) best = { row: sageRow, score };
+      });
+      if (best) {
+        appRow.used = true;
+        best.row.used = true;
+      }
+    });
+
+    const candidates = [];
+    appRows.forEach(appRow => {
+      if (appRow.used) return;
+      let best = null;
+      sageRows.forEach(sageRow => {
+        if (sageRow.used || sageRow.d !== appRow.d) return;
+        const amountDiff = Math.abs(appRow.amount - sageRow.amount);
+        const refScore = rowMatchScore(appRow, sageRow);
+        if (!refScore && amountDiff > 1) return;
+        const score = refScore * 1000 - amountDiff;
+        if (!best || score > best.score) best = { row: sageRow, score };
+      });
+      if (best) {
+        appRow.used = true;
+        best.row.used = true;
+        const delta = appRow.amount - best.row.amount;
+        if (Math.abs(delta) >= 0.01) {
+          candidates.push({ d: appRow.d, app: appRow, sage: best.row, delta });
+        }
+      }
+    });
+
+    appRows.filter(r => !r.used).forEach(appRow => {
+      candidates.push({ d: appRow.d, app: appRow, sage: null, delta: appRow.amount });
+    });
+    sageRows.filter(r => !r.used).forEach(sageRow => {
+      candidates.push({ d: sageRow.d, app: null, sage: sageRow, delta: -sageRow.amount });
+    });
+
+    if (!candidates.length) return '';
+
+    const money = n => Number(n || 0).toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});
+    return `<div class="sum-drill-hd" style="margin-top:4px;color:var(--navy);">Likely transaction-level cause</div>` +
+      candidates.sort((a,b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 8).map(item => {
+        const appText = item.app
+          ? `${escHtml(item.app.ref || 'No ref')} ${item.app.acct ? `<span class="sd-lbl">${escHtml(item.app.acct)}</span>` : ''} App: â‚¬${money(item.app.amount)}`
+          : 'App: â€”';
+        const sageText = item.sage
+          ? `${escHtml(item.sage.ref || 'No ref')} ${item.sage.acct ? `<span class="sd-lbl">${escHtml(item.sage.acct)}</span>` : ''} Sage: â‚¬${money(item.sage.amount)}`
+          : 'Sage: â€”';
+        return `<div class="sum-drill-item">
+          <span class="sd-date">${item.d}</span>
+          <span style="flex:1;min-width:180px;">${appText}</span>
+          <span style="flex:1;min-width:180px;">${sageText}</span>
+          <span class="sd-diff ${item.delta > 0 ? 'sd-pos' : 'sd-neg'}">${item.delta > 0 ? '+' : ''}${money(item.delta)}</span>
+        </div>`;
+      }).join('');
+  }
+
   // Restore the old cosmetic timing-tolerance behaviour:
   // if a date-level mismatch is fully offset on an adjacent day, do not surface it
   // as a discrepancy in the Daily Summary drill-down.
@@ -5424,14 +5532,16 @@ function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
     });
     const visibleMismatches = collapseAdjacentDateOffsets(mismatches)
       .sort((x,y) => Math.abs(y.a - y.s) - Math.abs(x.a - x.s));
-    drillHtml = buildDrillRows(visibleMismatches);
+    drillHtml = buildCountryTransactionRows(visibleMismatches) || buildDrillRows(visibleMismatches);
   }
 
   const diffFmt = totalDiff > 0 ? '+' : '';
-  const hd = `<div class="sum-drill-hd" style="display:flex;align-items:center;">
+  const breakdownLabel = type === 'country' ? 'transaction/date breakdown' : 'date-level breakdown';
+  let hd = `<div class="sum-drill-hd" style="display:flex;align-items:center;">
     <span>⬇ Diff: ${diffFmt}${totalDiff.toLocaleString('en-IE',{minimumFractionDigits:2})} — date-level breakdown</span>
     ${gotoBtn}
   </div>`;
+  hd = hd.replace('date-level breakdown', breakdownLabel);
 
   el.innerHTML = hd + drillHtml;
   el.style.display = '';
