@@ -1946,9 +1946,7 @@ function expandPeriodStoreFromStorage(store){
 function savePeriodStoreToStorage(){
   if(!periodStateReady) return false;
   const compactStore = compactPeriodStoreForStorage(periodStore);
-  const savedPrimary = dbSave(DB_KEYS.periods, compactStore);
-  const savedLegacy = dbSave(PERIODS_KEY, compactStore);
-  return savedPrimary && savedLegacy;
+  return dbSaveHeavy(DB_KEYS.periods, compactStore);
 }
 function cloneSettingsForPeriod(){
   return {
@@ -6298,6 +6296,11 @@ const DB_KEYS = {
 // In-memory fallback when localStorage is unavailable (file:// protocol, private browsing)
 const _memStore = {};
 let _storageAvailable = null;
+const IDB_NAME = 'strathroy_cash_recs_v1';
+const IDB_STORE = 'kv';
+const IDB_HEAVY_KEYS = new Set([DB_KEYS.periods, DB_KEYS.sageAllRows, PERIODS_KEY]);
+let _idbOpenPromise = null;
+let _idbAvailable = null;
 
 function showStorageWarning(message) {
   const warn = document.getElementById('storage-warn');
@@ -6356,21 +6359,152 @@ function dbLoad(key) {
   } catch(e) { console.warn('Load failed:', key, e); return null; }
 }
 
+function openCashRecIdb() {
+  if (!('indexedDB' in window)) {
+    _idbAvailable = false;
+    return Promise.resolve(null);
+  }
+  if (_idbOpenPromise) return _idbOpenPromise;
+  _idbOpenPromise = new Promise((resolve) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, { keyPath: 'key' });
+    };
+    req.onsuccess = () => {
+      _idbAvailable = true;
+      resolve(req.result);
+    };
+    req.onerror = () => {
+      _idbAvailable = false;
+      showStorageWarning('IndexedDB is blocked. Large backups may not restore on this browser profile.');
+      console.warn('IndexedDB open failed:', req.error);
+      resolve(null);
+    };
+    req.onblocked = () => {
+      _idbAvailable = false;
+      showStorageWarning('IndexedDB is blocked by another open Cash Recs tab. Close other tabs and try again.');
+      resolve(null);
+    };
+  });
+  return _idbOpenPromise;
+}
+
+async function idbRequest(mode, action) {
+  const db = await openCashRecIdb();
+  if (!db) throw new Error('IndexedDB is unavailable');
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, mode);
+    const store = tx.objectStore(IDB_STORE);
+    let req;
+    try { req = action(store); }
+    catch(e) { reject(e); return; }
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbSave(key, data) {
+  try {
+    await idbRequest('readwrite', store => store.put({ key, value: data, updatedAt: new Date().toISOString() }));
+    return true;
+  } catch(e) {
+    showStorageWarning(`could not save ${key} to IndexedDB. Large data will not persist after reload.`);
+    console.warn('IndexedDB save failed:', key, e);
+    return false;
+  }
+}
+
+async function idbLoad(key) {
+  try {
+    const rec = await idbRequest('readonly', store => store.get(key));
+    return rec ? rec.value : null;
+  } catch(e) {
+    console.warn('IndexedDB load failed:', key, e);
+    return null;
+  }
+}
+
+async function idbRemove(key) {
+  try {
+    await idbRequest('readwrite', store => store.delete(key));
+    return true;
+  } catch(e) {
+    console.warn('IndexedDB remove failed:', key, e);
+    return false;
+  }
+}
+
+async function idbClearAll() {
+  try {
+    await idbRequest('readwrite', store => store.clear());
+    return true;
+  } catch(e) {
+    console.warn('IndexedDB clear failed:', e);
+    return false;
+  }
+}
+
+function removeLocalKey(key) {
+  try { if (checkStorage()) localStorage.removeItem(key); }
+  catch(e) {}
+  delete _memStore[key];
+}
+
+function clearCashRecLocalStorage() {
+  if (checkStorage()) {
+    Object.keys(localStorage).forEach(key => {
+      if (key === SETTINGS_KEY || key === PERIODS_KEY || key.startsWith(DB_PREFIX)) {
+        localStorage.removeItem(key);
+      }
+    });
+  }
+  Object.keys(_memStore).forEach(key => {
+    if (key === SETTINGS_KEY || key === PERIODS_KEY || key.startsWith(DB_PREFIX)) delete _memStore[key];
+  });
+}
+
+function dbSaveHeavy(key, data) {
+  if (!IDB_HEAVY_KEYS.has(key)) return dbSave(key, data);
+  idbSave(key, data).then(saved => {
+    if (saved) removeLocalKey(key);
+  });
+  return _idbAvailable !== false;
+}
+
+async function dbLoadHeavy(key) {
+  if (!IDB_HEAVY_KEYS.has(key)) return dbLoad(key);
+  const fromIdb = await idbLoad(key);
+  if (fromIdb !== null) return fromIdb;
+  const fromLocal = dbLoad(key);
+  if (fromLocal !== null) {
+    const migrated = await idbSave(key, fromLocal);
+    if (migrated) removeLocalKey(key);
+  }
+  return fromLocal;
+}
+
 const BACKUP_FILE_PREFIX = 'strathroy-cash-rec-backup';
 
-function exportBackup() {
+async function exportBackup() {
   saveSettings();
   persistAll();
-  if (!checkStorage()) {
-    alert('Backup export needs browser localStorage to be available.');
+  const idb = await openCashRecIdb();
+  if (!idb) {
+    alert('Backup export needs IndexedDB to be available for large Cash Recs backups.');
     return;
   }
   const stamp = new Date();
+  const compactPeriods = compactPeriodStoreForStorage(periodStore);
+  const compactSageRows = compactSageRowsForStorage(sageAllRows);
+  await idbSave(DB_KEYS.periods, compactPeriods);
+  await idbSave(DB_KEYS.sageAllRows, compactSageRows);
   const payload = {
     app: 'strathroy-cash-rec',
     exportedAt: stamp.toISOString(),
     title: document.title,
     version: 'v16',
+    storageVersion: 'indexeddb-v1',
     settingsKey: SETTINGS_KEY,
     dbPrefix: DB_PREFIX,
     keys: { settings: SETTINGS_KEY, ...DB_KEYS },
@@ -6382,10 +6516,11 @@ function exportBackup() {
       weConfig: dbLoad(DB_KEYS.weConfig),
       sample: dbLoad(DB_KEYS.sample),
       sageUploads: dbLoad(DB_KEYS.sageUploads),
-      sageAllRows: dbLoad(DB_KEYS.sageAllRows),
+      sageAllRows: compactSageRows,
+      customers: dbLoad(DB_KEYS.customers),
       typoQueue: dbLoad(DB_KEYS.typoQueue),
       alerts: dbLoad(DB_KEYS.alerts),
-      periods: dbLoad(DB_KEYS.periods)
+      periods: compactPeriods
     }
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -6409,39 +6544,46 @@ function triggerBackupImport() {
 function importBackupFromFile(file) {
   if (!file) return;
   if (!checkStorage()) {
-    alert('Backup import needs browser localStorage to be available.');
+    alert('Backup import needs browser localStorage to be available for settings and small app data.');
     return;
   }
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
+      const idb = await openCashRecIdb();
+      if (!idb) throw new Error('IndexedDB is not available; large Cash Recs backups cannot be restored in this browser profile.');
       const payload = JSON.parse(String(reader.result || 'null'));
       if (!payload || payload.app !== 'strathroy-cash-rec' || !payload.data) {
         throw new Error('Invalid backup file.');
       }
       const exportedAt = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : 'Unknown time';
-      if (!confirm(`Import backup from ${exportedAt}? This will replace the saved data on this machine.`)) return;
-      const keyMap = payload.keys || {};
-      const writes = [
-        [keyMap.settings || SETTINGS_KEY, payload.data.settings],
-        [keyMap.ctDays || DB_KEYS.ctDays, payload.data.ctDays],
-        [keyMap.ddData || DB_KEYS.ddData, payload.data.ddData],
-        [keyMap.boiData || DB_KEYS.boiData, payload.data.boiData],
-        [keyMap.weConfig || DB_KEYS.weConfig, payload.data.weConfig],
-        [keyMap.sample || DB_KEYS.sample, payload.data.sample],
-        [keyMap.sageUploads || DB_KEYS.sageUploads, payload.data.sageUploads],
-        [keyMap.sageAllRows || DB_KEYS.sageAllRows, payload.data.sageAllRows],
-        [keyMap.typoQueue || DB_KEYS.typoQueue, payload.data.typoQueue],
-        [keyMap.alerts || DB_KEYS.alerts, payload.data.alerts],
-        [keyMap.periods || DB_KEYS.periods, payload.data.periods]
+      if (!confirm(`Import backup from ${exportedAt}? This will clear and replace all saved Cash Recs data on this machine.`)) return;
+      const compactPeriods = payload.data.periods ? compactPeriodStoreForStorage(expandPeriodStoreFromStorage(payload.data.periods)) : payload.data.periods;
+      const compactSageRows = payload.data.sageAllRows ? compactSageRowsForStorage(expandSageRowsFromStorage(payload.data.sageAllRows)) : payload.data.sageAllRows;
+      clearCashRecLocalStorage();
+      if (!(await idbClearAll())) throw new Error('Could not clear old IndexedDB data before restore.');
+      const smallWrites = [
+        [SETTINGS_KEY, payload.data.settings],
+        [DB_KEYS.ctDays, payload.data.ctDays],
+        [DB_KEYS.ddData, payload.data.ddData],
+        [DB_KEYS.boiData, payload.data.boiData],
+        [DB_KEYS.weConfig, payload.data.weConfig],
+        [DB_KEYS.sample, payload.data.sample],
+        [DB_KEYS.sageUploads, payload.data.sageUploads],
+        [DB_KEYS.customers, payload.data.customers],
+        [DB_KEYS.typoQueue, payload.data.typoQueue],
+        [DB_KEYS.alerts, payload.data.alerts]
       ];
-      writes.forEach(([key, value]) => {
+      smallWrites.forEach(([key, value]) => {
         if (typeof value === 'undefined') {
-          localStorage.removeItem(key);
+          removeLocalKey(key);
         } else {
-          localStorage.setItem(key, JSON.stringify(value));
+          if (!dbSave(key, value)) throw new Error(`Could not save ${key}; browser storage may be full.`);
         }
       });
+      if (typeof compactSageRows !== 'undefined' && !(await idbSave(DB_KEYS.sageAllRows, compactSageRows))) throw new Error(`Could not save ${DB_KEYS.sageAllRows} to IndexedDB.`);
+      if (typeof compactPeriods !== 'undefined' && !(await idbSave(DB_KEYS.periods, compactPeriods))) throw new Error(`Could not save ${DB_KEYS.periods} to IndexedDB.`);
+      await idbRemove(PERIODS_KEY);
       alert('Backup imported. The page will now reload with the restored data.');
       window.location.reload();
     } catch (err) {
@@ -6464,7 +6606,7 @@ function persistAll() {
   dbSave(DB_KEYS.sample, SAMPLE);
   dbSave(DB_KEYS.sageUploads, sageUploads);
   // sageAllRows: Date objects need serialisation
-  dbSave(DB_KEYS.sageAllRows, compactSageRowsForStorage(sageAllRows));
+  dbSaveHeavy(DB_KEYS.sageAllRows, compactSageRowsForStorage(sageAllRows));
   dbSave(DB_KEYS.customers, CUSTOMERS);
   dbSave(DB_KEYS.typoQueue, typoQueue);
   dbSave(DB_KEYS.alerts, {
@@ -6481,8 +6623,19 @@ function persistAll() {
 // Track whether each array was loaded from storage (even if empty)
 let _ctLoaded=false, _ddLoaded=false, _boiLoaded=false;
 
-function loadPersistedData() {
-  const savedPeriods = expandPeriodStoreFromStorage(dbLoad(DB_KEYS.periods) || dbLoad(PERIODS_KEY));
+async function loadPersistedData() {
+  let periodPayload = await dbLoadHeavy(DB_KEYS.periods);
+  if (!periodPayload) {
+    periodPayload = (await idbLoad(PERIODS_KEY)) || dbLoad(PERIODS_KEY);
+    if (periodPayload) {
+      const migrated = await idbSave(DB_KEYS.periods, periodPayload);
+      if (migrated) {
+        removeLocalKey(PERIODS_KEY);
+        await idbRemove(PERIODS_KEY);
+      }
+    }
+  }
+  const savedPeriods = expandPeriodStoreFromStorage(periodPayload);
   if(savedPeriods && savedPeriods.months){
     periodStore = savedPeriods;
   }
@@ -6552,7 +6705,7 @@ function loadPersistedData() {
     console.log('Loaded sageUploads:', sageUploads.length);
   }
 
-  const savedRows = reviveSageRowsFromStorage(dbLoad(DB_KEYS.sageAllRows));
+  const savedRows = reviveSageRowsFromStorage(await dbLoadHeavy(DB_KEYS.sageAllRows));
   if (savedRows && savedRows.length) {
     sageAllRows.length = 0;
     savedRows.forEach(r => {
@@ -6645,34 +6798,42 @@ let recPersistTimer = null;
   document.addEventListener(evt, markAppActivity, { passive: true });
 });
 
-loadSettings();
-loadPersistedData();
-initBOI();
-initDD();
-initCT();
-buildDCBlocks();
-renderBOI();
-renderDD();
-renderCT();
-buildDCBlocks();
-if(sageUploads.length) renderSageImport();
-recalcRec();
-detectCTMissingDays();
-initPeriodState();
-renderDashboard();
-renderDailySummary();
-updateLastRefreshStatus();
-if (hasRememberedUnlock()) {
-  appUnlocked = true;
-  rememberUnlockState(true);
-  document.body.classList.remove('app-locked');
-  getLockEl('lockScreen')?.classList.remove('show');
-  getLockEl('lockScreen')?.setAttribute('aria-hidden', 'true');
-  scheduleAutoLock();
-} else {
-  showLockScreen();
+async function initApp() {
+  await openCashRecIdb();
+  loadSettings();
+  await loadPersistedData();
+  initBOI();
+  initDD();
+  initCT();
+  buildDCBlocks();
+  renderBOI();
+  renderDD();
+  renderCT();
+  buildDCBlocks();
+  if(sageUploads.length) renderSageImport();
+  recalcRec();
+  detectCTMissingDays();
+  initPeriodState();
+  renderDashboard();
+  renderDailySummary();
+  updateLastRefreshStatus();
+  if (hasRememberedUnlock()) {
+    appUnlocked = true;
+    rememberUnlockState(true);
+    document.body.classList.remove('app-locked');
+    getLockEl('lockScreen')?.classList.remove('show');
+    getLockEl('lockScreen')?.setAttribute('aria-hidden', 'true');
+    scheduleAutoLock();
+  } else {
+    showLockScreen();
+  }
+  console.log('v16 loaded. CT days:', ctDays.length, '| DD rows:', ddData.length, '| BOI rows:', boiData.length);
 }
-console.log('v16 loaded. CT days:', ctDays.length, '| DD rows:', ddData.length, '| BOI rows:', boiData.length);
+
+initApp().catch(err => {
+  console.error('Cash Recs startup failed:', err);
+  showStorageWarning('startup failed while loading browser data. Try reloading, or restore from a backup.');
+});
 </script>
 </body>
 </html>
