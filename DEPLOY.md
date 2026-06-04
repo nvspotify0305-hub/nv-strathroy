@@ -1,12 +1,12 @@
 # Strathroy Dairy — Cash Rec — Deploy Reference
-> Current deploy target is GitHub Pages, with `index.html` as the published entry file.
+> Current live target is Vercel, with `index.html` as the published entry file.
 
 ---
 
 ## Architecture
 
-No build step. Static HTML app served by GitHub Pages.
-No server, no npm, no deployment pipeline.
+No build step. Static HTML app served by Vercel.
+No server and no app build pipeline; Vercel publishes the static root files.
 
 ---
 
@@ -15,7 +15,7 @@ No server, no npm, no deployment pipeline.
 | File | Purpose |
 |------|---------|
 | `cash_rec_period_full_test_v5.html` | Current working file with latest fixes |
-| `index.html` | GitHub Pages deploy target |
+| `index.html` | Vercel deploy target |
 | `archive/legacy-html/` | Legacy local/reference HTML files retained outside the root |
 
 When deploying, copy the latest approved working file into `index.html`.
@@ -29,7 +29,7 @@ Version strings inside the HTML should still be updated together when a release 
 2. Footer / console strings
 3. Any explicit visible version labels
 
-The published filename on GitHub Pages should stay `index.html`.
+The published filename on Vercel should stay `index.html`.
 
 ---
 
@@ -41,6 +41,7 @@ copy cash_rec_period_full_test_v5.html index.html
 git add cash_rec_period_full_test_v5.html index.html
 git commit -m "deploy update"
 git push -u origin main
+npx vercel deploy --prod --yes
 ```
 
 If other deploy docs changed in the same session, include them in the same commit:
@@ -74,15 +75,34 @@ git config --global --add safe.directory "C:/Claude Projects/Strathroy Projects/
 | Repo | `nvspotify0305-hub/nv-strathroy` |
 | Local branch | `main` |
 | Remote branch | `main` |
-| Live URL | `https://nvspotify0305-hub.github.io/nv-strathroy/` |
+| Live URL | `https://strathroy-cash-recs.vercel.app/` |
+| Vercel project | `strathroy-cash-recs` |
 
-## GitHub Pages Settings
+## Vercel Settings
+
+Linked project file:
+
+`.vercel/project.json`
+
+Current project:
+
+- Project ID: `prj_jYTdTrGEspSVwf2diLYm2N6jL9Cn`
+- Team ID: `team_NRo8pioFnSjkswAP2G0GUSBq`
+- Production alias: `https://strathroy-cash-recs.vercel.app/`
+
+## Legacy GitHub Pages Notes
 
 Repo settings path:
 
 `https://github.com/nvspotify0305-hub/nv-strathroy/settings/pages`
 
-Required settings:
+Old GitHub Pages URL:
+
+`https://nvspotify0305-hub.github.io/nv-strathroy/`
+
+As of 2026-06-04 this URL returned GitHub's "site not found" page during verification; do not treat it as the current live Cash Recs address unless GitHub Pages is deliberately re-enabled.
+
+Former required settings:
 - Repository visibility: `Public` on the current plan
 - Source: `Deploy from a branch`
 - Branch: `main`
@@ -111,7 +131,7 @@ Required settings:
 
 | Warning | Cause | Action |
 |---------|-------|--------|
-| GitHub Pages unavailable | Repo is private on current plan | Make repo public or upgrade |
+| GitHub Pages unavailable | Old GitHub Pages route is not the current live target | Use the Vercel live URL unless GitHub Pages is deliberately re-enabled |
 | localStorage data differs from local file copy | Different origin between `file://` and hosted site | Expect separate stored data per origin |
 | SheetJS CDN failure | No internet connection | .xlsx import/export will fail; core app still works |
 | Google Fonts not loading | No internet connection | App uses system sans-serif fallback |
@@ -125,7 +145,7 @@ Required settings:
 - [ ] Title / footer / console strings reviewed
 - [ ] `index.html` opens correctly locally before push
 - [ ] `images/` folder included
-- [ ] GitHub Pages published from root branch
+- [ ] Vercel production deploy is ready and aliased
 - [ ] Live URL smoke-tested on another PC
 - [ ] Remember hosted site uses different `localStorage` from local `file://`
 - [ ] If cross-PC continuity is needed, remind user to use `Export Backup` / `Import Backup`
