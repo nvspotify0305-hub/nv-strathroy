@@ -7,7 +7,7 @@
 ## Current Version: v27
 **Working File:** `index.html`
 **Publish File:** `index.html`
-**Deployed:** GitHub repo pushed; live app remains on `index.html`
+**Deployed:** Vercel live app serves `index.html` at `https://strathroy-cash-recs.vercel.app/`; GitHub repo remains source control.
 **Architecture:** Single-file vanilla HTML/CSS/JS app with localStorage persistence and SheetJS for .xlsx import/export
 
 ---
@@ -32,7 +32,7 @@
 | Clear by date range | Complete | Prevents stale rows |
 | Reset All Sage Data | Complete | Full Sage data wipe |
 | Daily Summary adjacent-day tolerance | Partial | Restored in `cash_rec_test.html` drill-down only; verify against duplicate Sage test file |
-| GitHub Pages deployment | Complete | Repo pushed and live from `main` root |
+| Vercel deployment | Complete | Live at `https://strathroy-cash-recs.vercel.app/`; GitHub repo is source control only |
 | Branding portability across PCs | Partial | Official logo is now standardised to `images/Logo Official.jpg` in active files, but consistency still depends on the bundled `images` folder and version strings still need manual review |
 | Backup / import portability | Complete | Manual JSON transfer workflow now implemented for cross-PC use |
 | Cross-PC data sync | Partial | Manual backup/import exists; no live cloud sync |
@@ -63,7 +63,7 @@
 |-------|------|--------|
 | 1 — Finish app | Complete all functional features | In progress |
 | 2 — Design polish | Branding, logo, visual improvements | In progress |
-| 3 — GitHub deploy | Publish to GitHub Pages, set up collaborator access | In progress |
+| 3 — Vercel deploy | Publish static `index.html` to Vercel, keep GitHub as source control | Complete |
 
 ---
 
@@ -91,10 +91,10 @@
 | Logo / branding | Official logo is now swapped into active files; next step is to finalise favicon/embed strategy so branding is not dependent on local path/cached assets |
 | Visual improvements | Review spacing, typography, colour use across all tabs |
 
-### Phase 3 — GitHub
+### Phase 3 — Vercel / Source Control
 | Item | Detail |
 |------|--------|
-| GitHub Pages deploy | Live now; smoke-test on another PC after import |
+| Vercel deploy | Live now at `https://strathroy-cash-recs.vercel.app/`; smoke-test on another PC after import |
 | Collaborator access | One read-only collaborator (view only, no edit permissions) |
 | Multi-device access | Hosted URL works, but data still needs export/import or cloud sync |
 
@@ -146,7 +146,9 @@
 - Current rebuild file: `cash_rec_period_full_test.html`
 - Older test/experiment files: `cash_rec_test.html`, `cash_rec_period_test.html`
 - Deploy target: `index.html`
-- GitHub Pages branch/folder: `main` / `(root)`
+- Live host: Vercel project `strathroy-cash-recs`
+- Production URL: `https://strathroy-cash-recs.vercel.app/`
+- GitHub repo: `nvspotify0305-hub/nv-strathroy` for source control only
 - Hosted deploy does not carry `file://` localStorage forward
 - Cross-PC workflow is now `Export Backup` -> move JSON -> `Import Backup`
 - Do not copy period-rebuild changes into `index.html` until full month restore across all tabs is working

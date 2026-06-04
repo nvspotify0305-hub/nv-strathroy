@@ -29,6 +29,7 @@
 2026-04-01 — `cash_rec_test.html` contains the newer Sage upload ownership fix (`_sessionId`-based clear/re-import behaviour). The archived `strathroy_cash_rec_v27.html` does not.
 2026-04-01 — GitHub Pages for this project now publishes from `index.html` in repo `nvspotify0305-hub/nv-strathroy`.
 2026-04-01 — GitHub Pages does not solve cross-PC data continuity by itself because the app still stores state in browser `localStorage`; hosted origin data is separate from `file://` data.
+2026-06-04 — Cash Recs live hosting moved to Vercel. Current live URL is `https://strathroy-cash-recs.vercel.app/`; GitHub repo `nvspotify0305-hub/nv-strathroy` remains source control, and the old GitHub Pages URL is not the public live app.
 2026-04-02 — Manual backup/import is now implemented as the project's cross-PC workflow: export one JSON backup file from one machine, import it on the other machine, restore into that browser's `localStorage`, then reload.
 2026-04-02 — The current live GitHub deploy that includes backup/import is commit `846ecf5` on `main`.
 2026-04-02 — Footer left-hand branding now explicitly keeps the version label together with `Strathroy Dairy · Cash Rec`; footer currently shows `v16`.

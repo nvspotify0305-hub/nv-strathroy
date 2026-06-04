@@ -11,6 +11,9 @@ Single-file HTML/CSS/JS reconciliation app for Strathroy Dairy.
 - Legacy reference area: `archive/legacy-html/`
 - Stack: vanilla HTML/CSS/JS, SheetJS via CDN, browser `localStorage`
 - Runtime model: no build step, no server, no backend
+- Live host: Vercel project `strathroy-cash-recs`
+- Live URL: `https://strathroy-cash-recs.vercel.app/`
+- GitHub repo `nvspotify0305-hub/nv-strathroy` is source control only; GitHub Pages is no longer the public live host.
 
 ## File Roles
 
@@ -28,7 +31,7 @@ Single-file HTML/CSS/JS reconciliation app for Strathroy Dairy.
 - Everything is inline in one HTML file: layout, styles, app logic, and seeded data.
 - SheetJS is loaded from CDN for `.xlsx` import/export.
 - State is persisted in browser storage with an in-memory fallback.
-- Hosted GitHub Pages data is separate from local `file://` browser data.
+- Hosted Vercel data is separate from local `file://` browser data.
 - Cross-PC transfer is currently handled by manual `Export Backup` and `Import Backup`.
 
 ## Persistence
@@ -140,7 +143,7 @@ Important accounting behaviors:
 
 ## Open Work
 
-- Verify backup import on another PC via the live GitHub Pages site.
+- Verify backup import on another PC via the live Vercel site.
 - Finalise favicon/embed strategy so branding is less path-dependent.
 - Add month-end balance checks.
 - Rebuild new-month workflow as a full period archive model.

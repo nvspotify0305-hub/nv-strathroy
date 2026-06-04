@@ -4,7 +4,10 @@ Single-file HTML app for cash reconciliation.
 
 ## Publish Target
 
-- GitHub Pages entry file: `index.html`
+- Vercel live entry file: `index.html`
+- Live URL: `https://strathroy-cash-recs.vercel.app/`
+- Vercel project: `strathroy-cash-recs`
+- GitHub repo `nvspotify0305-hub/nv-strathroy` is source control only; GitHub Pages is not the current public live host.
 - Supporting assets: `images/`
 
 ## Working Files
@@ -18,14 +21,12 @@ Single-file HTML app for cash reconciliation.
 - `archive/legacy-html/`: older local/reference HTML variants and dated backups
 - `archive/images/`: superseded branding assets kept only for reference
 
-## GitHub Pages
+## Vercel
 
-1. Create a GitHub repository.
-2. Push this folder to the default branch.
-3. In GitHub repo settings, open `Pages`.
-4. Set source to `Deploy from a branch`.
-5. Choose the default branch and `/ (root)`.
-6. Save and wait for the Pages URL.
+1. Commit the approved `index.html` update.
+2. Push to `main`.
+3. Run `npx vercel deploy --prod --yes` from this folder.
+4. Verify the production alias: `https://strathroy-cash-recs.vercel.app/`.
 
 ## Notes
 
