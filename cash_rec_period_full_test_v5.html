@@ -103,8 +103,10 @@ body::before{
 
 .month-bar{display:flex;align-items:center;gap:10px;margin-left:auto;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.14);}
 .month-refresh{font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.68);min-width:94px;text-align:left;}
-.top-lock-btn{padding:7px 14px;border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.10);color:var(--white);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s,transform .15s;}
+.top-lock-btn{width:30px;height:30px;padding:0;border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.10);color:var(--white);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 30px;transition:background .15s,transform .15s;}
 .top-lock-btn:hover{background:rgba(255,255,255,0.18);transform:translateY(-1px);}
+.top-lock-icon{position:relative;display:block;width:12px;height:9px;border:2px solid #fff;border-radius:2px;margin-top:5px;}
+.top-lock-icon::before{content:'';position:absolute;left:1px;top:-9px;width:6px;height:8px;border:2px solid #fff;border-bottom:0;border-radius:6px 6px 0 0;}
 .m-btn{
   width:28px;height:28px;
   border:1px solid rgba(255,255,255,0.25);
@@ -792,7 +794,7 @@ footer{
     <span class="month-refresh" id="lastRefresh">Updated --:--</span>
     <button class="close-btn" id="closeMonthBtn">Close Month</button>
     <button class="settings-gear" id="settingsBtn" onclick="toggleSettings()" title="Settings">⚙</button>
-    <button class="top-lock-btn" id="lockBtn" type="button" title="Lock this app">Lock</button>
+    <button class="top-lock-btn" id="lockBtn" type="button" aria-label="Lock Cash Recs" title="Lock"><span class="top-lock-icon" aria-hidden="true"></span></button>
   </div>
 </div>
 
