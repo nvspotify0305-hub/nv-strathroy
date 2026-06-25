@@ -3424,10 +3424,13 @@ function exportWEExcel(weRef){
   const headers=cfg.labels.map((lbl,i)=>{
     const date=cfg.dates&&cfg.dates[i]&&String(cfg.dates[i]).trim();
     const label=date?`Lodg ${i+1} ${date}`:`Lodg ${i+1}`;
-    return `${label} (EUR)`;
+    return label;
   });
   const status=cfg.posted?`Posted ${cfg.postDate||''}`:'Unposted';
-  const columns=['Acct','Customer',...headers,'Total (EUR)'];
+  const columns=['Acct','Customer',...headers,'Total'];
+  const excelColName=(idx)=>{let n=idx+1;let out='';while(n>0){const r=(n-1)%26;out=String.fromCharCode(65+r)+out;n=Math.floor((n-1)/26);}return out;};
+  const mergeLastCol=excelColName(columns.length-1);
+  const columnWidths=[10,28,...Array.from({length:lc},()=>14),14];
   const rawRows=[
     {cells:['Strathroy Dairy Cash Recs'],style:1},
     {cells:[`Dublin Cash - ${weRef}`],style:2},
@@ -3458,6 +3461,8 @@ function exportWEExcel(weRef){
     name:safeExportNamePart(weRef),
     rawRows,
     columns,
+    merges:[`A1:${mergeLastCol}1`,`A2:${mergeLastCol}2`],
+    columnWidths,
     autoFilterRow:7,
     freezeRow:7
   }],`${safeExportNamePart(weRef)}_dublin_cash.xlsx`);

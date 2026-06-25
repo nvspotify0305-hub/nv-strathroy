@@ -44,6 +44,8 @@
 
   function columnWidth(column) {
     const key = normalizeKey(column);
+    if (key === "ACCT" || key.includes("ACCREF")) return 10;
+    if (key.startsWith("LODG") || key === "TOTAL") return 14;
     if (key.includes("PRODUCT") || key.includes("DESCRIPTION")) return 32;
     if (key.includes("CUSTOMER") || key.includes("ANALYSIS") || key.includes("NAME")) return 28;
     if (key.includes("DOCUMENT") || key.includes("DATE") || key.includes("MONTH")) return 15;
@@ -143,11 +145,14 @@
       const filterRow = config.autoFilterRow || 0;
       const freezeRow = config.freezeRow || filterRow || 1;
       const autoFilter = filterRow ? `<autoFilter ref="A${filterRow}:${lastCol}${lastRow}"/>` : "";
+      const customWidths = Array.isArray(config.columnWidths) ? config.columnWidths : [];
+      const merges = Array.isArray(config.merges) ? config.merges.filter(Boolean) : [];
+      const mergeCells = merges.length ? `<mergeCells count="${merges.length}">${merges.map((ref) => `<mergeCell ref="${xmlEscape(ref)}"/>`).join("")}</mergeCells>` : "";
       return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <sheetViews><sheetView workbookViewId="0"><pane ySplit="${freezeRow}" topLeftCell="A${freezeRow + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
-  <cols>${Array.from({ length: maxCols }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${columnWidth(columns[i] || "")}" customWidth="1"/>`).join("")}</cols>
-  <sheetData>${rows}</sheetData>${autoFilter}
+  <cols>${Array.from({ length: maxCols }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${Number(customWidths[i]) || columnWidth(columns[i] || "")}" customWidth="1"/>`).join("")}</cols>
+  <sheetData>${rows}</sheetData>${autoFilter}${mergeCells}
 </worksheet>`;
     }
 
