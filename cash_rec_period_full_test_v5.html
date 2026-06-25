@@ -3066,6 +3066,15 @@ let curPasteWE=null,curPasteLodge=null,curPostWE=null,rowToDelete=null;
 
 function fmt(n){return n===null?null:parseFloat(n);}
 function fmtDisp(n){return n===null?'—':n.toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function customerHasDublinActivity(custIdx){
+  return Object.values(SAMPLE).some(rows=>{
+    const row=rows&&rows[custIdx];
+    return Array.isArray(row)&&row.some(v=>{
+      const n=parseFloat(v);
+      return Number.isFinite(n)&&Math.abs(n)>0.005;
+    });
+  });
+}
 
 function buildDCBlocks(){
   const container=document.getElementById('dc-blocks');
@@ -3181,7 +3190,8 @@ function buildGrid(weRef){
 
   CUSTOMERS.forEach((c,i)=>{
     const tr=document.createElement('tr');
-    if(c.flag)tr.classList.add('inactive');
+    const showInactiveFlag=c.flag&&!customerHasDublinActivity(i);
+    if(showInactiveFlag)tr.classList.add('inactive');
     let rowTotal=0;
     let tdCols='';
     for(let l=0;l<lc;l++){
@@ -3190,7 +3200,7 @@ function buildGrid(weRef){
       const isHid=hiddenCols[weRef+'-'+(l+1)]?'style="display:none"':'';
       tdCols+=`<td class="col-lodge ${weRef}-c${l+1}${v===null?' zero':''}" ${isHid} ondblclick="editCell(this,'${weRef}',${i},${l})" title="Double-click to edit">${fmtDisp(v)}</td>`;
     }
-    const flagHtml=c.flag?` <span style="background:var(--amber-pale);color:var(--amber);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;">${c.flag}</span><div class="inact-wrap"><button style="background:none;border:1px solid var(--border-md);border-radius:4px;font-size:10px;padding:1px 5px;cursor:pointer;color:var(--ink-lt);" onclick="toggleInact(this)">💤</button><div class="inact-dd hidden"><div class="inact-ddhd">💤 No activity 2 months</div><button class="inact-opt" onclick="keepActive(this)">Keep active</button><button class="inact-opt" onclick="makeInactive(this)">Make inactive</button><button class="inact-opt danger" onclick="deleteCust(this)">Delete permanently</button></div></div>`:'';
+    const flagHtml=showInactiveFlag?` <span style="background:var(--amber-pale);color:var(--amber);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;">${c.flag}</span><div class="inact-wrap"><button style="background:none;border:1px solid var(--border-md);border-radius:4px;font-size:10px;padding:1px 5px;cursor:pointer;color:var(--ink-lt);" onclick="toggleInact(this)">💤</button><div class="inact-dd hidden"><div class="inact-ddhd">💤 No activity 2 months</div><button class="inact-opt" onclick="keepActive(this)">Keep active</button><button class="inact-opt" onclick="makeInactive(this)">Make inactive</button><button class="inact-opt danger" onclick="deleteCust(this)">Delete permanently</button></div></div>`:'';
     tr.innerHTML=`<td class="col-acct">${c.acct}</td><td class="col-name">${c.name}${flagHtml}</td>${tdCols}<td class="col-total">${fmtDisp(rowTotal===0?null:rowTotal)}</td>`;
     tbody.appendChild(tr);
   });
@@ -4400,7 +4410,8 @@ function buildGrid(weRef){
 
   CUSTOMERS.forEach((c,i)=>{
     const tr=document.createElement('tr');
-    if(c.flag)tr.classList.add('inactive');
+    const showInactiveFlag=c.flag&&!customerHasDublinActivity(i);
+    if(showInactiveFlag)tr.classList.add('inactive');
     let rowTotal=0;
     let tdCols='';
     let hasAnyValue=false;
@@ -4413,7 +4424,7 @@ function buildGrid(weRef){
     }
     // FIX: use fmtDispSigned for row total — handles negatives correctly
     const rowTotalDisplay=hasAnyValue?fmtDispSigned(rowTotal):'—';
-    const flagHtml=c.flag?` <span style="background:var(--amber-pale);color:var(--amber);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;">${c.flag}</span><div class="inact-wrap"><button style="background:none;border:1px solid var(--border-md);border-radius:4px;font-size:10px;padding:1px 5px;cursor:pointer;color:var(--ink-lt);" onclick="toggleInact(this)">💤</button><div class="inact-dd hidden"><div class="inact-ddhd">💤 No activity 2 months</div><button class="inact-opt" onclick="keepActive(this)">Keep active</button><button class="inact-opt" onclick="makeInactive(this)">Make inactive</button><button class="inact-opt danger" onclick="deleteCust(this)">Delete permanently</button></div></div>`:'';
+    const flagHtml=showInactiveFlag?` <span style="background:var(--amber-pale);color:var(--amber);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;">${c.flag}</span><div class="inact-wrap"><button style="background:none;border:1px solid var(--border-md);border-radius:4px;font-size:10px;padding:1px 5px;cursor:pointer;color:var(--ink-lt);" onclick="toggleInact(this)">💤</button><div class="inact-dd hidden"><div class="inact-ddhd">💤 No activity 2 months</div><button class="inact-opt" onclick="keepActive(this)">Keep active</button><button class="inact-opt" onclick="makeInactive(this)">Make inactive</button><button class="inact-opt danger" onclick="deleteCust(this)">Delete permanently</button></div></div>`:'';
     tr.innerHTML=`<td class="col-acct">${c.acct}</td><td class="col-name">${c.name}${flagHtml}</td>${tdCols}<td class="col-total">${rowTotalDisplay}</td>`;
     tbody.appendChild(tr);
   });
