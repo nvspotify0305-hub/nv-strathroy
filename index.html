@@ -3101,7 +3101,8 @@ function buildDCBlocks(){
       ${dateHtml.replace('span class="we-date"','span class="we-date" id="date-'+weRef+'"')}
       <div style="display:flex;gap:5px;margin-left:8px;">
         <button class="btn btn-ghost btn-xs" onclick="toggleAllLodge('${weRef}')" id="toggleAll-${weRef}">Hide lodgements</button>
-        <button class="btn btn-ghost btn-xs" onclick="exportWE('${weRef}',true)">⬇ Sage Export</button>
+        <button class="btn btn-ghost btn-xs" onclick="exportWEExcel('${weRef}')">Excel Export</button>
+        <button class="btn btn-ghost btn-xs" onclick="exportWE('${weRef}',true)">Sage CSV</button>
         ${!cfg.posted?`<button class="btn btn-xs" style="background:var(--red);color:#fff;border:none;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:11px;" onclick="deleteWEBatch('${weRef}')">✕ Delete</button>`:''}
       </div>
       <span class="we-total">€${grandTotal.toLocaleString('en-IE',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
@@ -3371,21 +3372,77 @@ function applyPaste(){
 }
 
 // Export
+function csvQuote(v){
+  return `"${String(v ?? '').replace(/"/g,'""')}"`;
+}
+function safeExportNamePart(v){
+  return String(v || 'export').replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'') || 'export';
+}
+function downloadTextFile(filename,text,type='text/csv;charset=utf-8'){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type}));
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
 function exportWE(weRef,sageOnly){
   const cfg=WE_CONFIG[weRef];const data=SAMPLE[weRef];const lc=cfg.labels.length;
-  const headers=sageOnly?['Account','Customer','Total']:['Account','Customer',...cfg.labels,'Total'];
+  const headers=['Account','Customer',...cfg.labels,'Total'];
   const rows=CUSTOMERS.map((c,i)=>{
     let rowTotal=0;
     const amts=[];
     for(let l=0;l<lc;l++){const v=data&&data[i]&&data[i][l]!=null?parseFloat(data[i][l]):null;amts.push(v===null?'':v.toFixed(2));if(v!==null)rowTotal+=v;}
-    if(sageOnly){return rowTotal===0?null:[c.acct,c.name,rowTotal.toFixed(2)];}
+    if(sageOnly){return rowTotal===0?null:[String(c.acct||'').trim(),rowTotal.toFixed(2)];}
     return [c.acct,c.name,...amts,rowTotal===0?'':rowTotal.toFixed(2)];
   }).filter(Boolean);
-  const csv=[headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download=weRef+(sageOnly?'_sage':'_full')+'.csv';
-  a.click();
+  if(sageOnly){
+    const csv=['Accref,Value',...rows.map(r=>`${r[0]},${r[1]}`)].join('\r\n');
+    downloadTextFile(`${safeExportNamePart(weRef)}_sage.csv`,csv);
+    return;
+  }
+  const csv=[headers,...rows].map(r=>r.map(csvQuote).join(',')).join('\r\n');
+  downloadTextFile(`${safeExportNamePart(weRef)}_full.csv`,csv);
+}
+function exportWEExcel(weRef){
+  if(typeof XLSX==='undefined'){alert('SheetJS not loaded — check internet connection.');return;}
+  const cfg=WE_CONFIG[weRef];const data=SAMPLE[weRef];
+  if(!cfg){alert('WE batch not found.');return;}
+  const lc=cfg.labels.length;
+  const headers=cfg.labels.map((lbl,i)=>{
+    const date=cfg.dates&&cfg.dates[i]&&String(cfg.dates[i]).trim();
+    return date?`${lbl} ${date}`:lbl;
+  });
+  const status=cfg.posted?`Posted ${cfg.postDate||''}`:'Unposted';
+  const rows=[
+    [`Dublin Cash - ${weRef}`],
+    ['Status',status],
+    [],
+    ['Acct','Customer',...headers,'Total']
+  ];
+  CUSTOMERS.forEach((c,i)=>{
+    let rowTotal=0;let hasVal=false;
+    const amts=[];
+    for(let l=0;l<lc;l++){
+      const v=data&&data[i]&&data[i][l]!=null?parseFloat(data[i][l]):null;
+      amts.push(v===null?'':v);
+      if(v!==null){rowTotal+=v;hasVal=true;}
+    }
+    rows.push([c.acct,c.name,...amts,hasVal?Math.round(rowTotal*100)/100:'']);
+  });
+  const grandTotal=cfg.totals.reduce((s,v)=>s+Number(v||0),0);
+  const diffs=cfg.totals.map((_,i)=>((cfg.totals[i]||0)+(cfg.floats[i]||0))-(cfg.officeTotals[i]||0));
+  rows.push([]);
+  rows.push(['Total','',...cfg.totals.map(v=>Number(v||0)),Math.round(grandTotal*100)/100]);
+  rows.push(['Opening float','',...cfg.floats.map(v=>Number(v||0)),'']);
+  rows.push(['Office total','',...cfg.officeTotals.map(v=>Number(v||0)),'']);
+  rows.push(['Diff','',...diffs.map(v=>Math.round(v*100)/100),'']);
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:32},...Array.from({length:lc},()=>({wch:16})),{wch:14}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,safeExportNamePart(weRef).slice(0,31));
+  XLSX.writeFile(wb,`${safeExportNamePart(weRef)}_dublin_cash.xlsx`);
 }
 
 // Inactivity
