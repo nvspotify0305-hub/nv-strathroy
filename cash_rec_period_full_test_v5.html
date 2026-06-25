@@ -8,6 +8,7 @@
 <link rel="shortcut icon" href="images/favicon.ico" type="image/x-icon">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="strathroy-excel-export.js"></script>
 <style>
 :root{
   /* Strathroy Brand */
@@ -1145,7 +1146,6 @@ footer{
           <span class="text-xs text-lt">Month total: <span class="mono fw-6" style="color:var(--navy);" id="dc-month-total">€35,110.05</span></span>
           <button class="btn btn-ghost btn-sm" onclick="showModal('addLodgeModal')">+ New WE batch</button>
           <button class="btn btn-ghost btn-sm" onclick="showModal('addCustModal')">+ Customer</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportXLSX('dublin')">⬇ Export .xlsx</button>
         </div>
       </div>
     </div>
@@ -3406,20 +3406,26 @@ function exportWE(weRef,sageOnly){
   downloadTextFile(`${safeExportNamePart(weRef)}_full.csv`,csv);
 }
 function exportWEExcel(weRef){
-  if(typeof XLSX==='undefined'){alert('SheetJS not loaded — check internet connection.');return;}
+  if(!window.StrathroyExcelExport){alert('Strathroy Excel export helper not loaded.');return;}
   const cfg=WE_CONFIG[weRef];const data=SAMPLE[weRef];
   if(!cfg){alert('WE batch not found.');return;}
   const lc=cfg.labels.length;
+  const monthLabel=appSettings.monthLabel || monthLabelFor();
   const headers=cfg.labels.map((lbl,i)=>{
     const date=cfg.dates&&cfg.dates[i]&&String(cfg.dates[i]).trim();
-    return date?`${lbl} ${date}`:lbl;
+    const label=date?`Lodg ${i+1} ${date}`:`Lodg ${i+1}`;
+    return `${label} (EUR)`;
   });
   const status=cfg.posted?`Posted ${cfg.postDate||''}`:'Unposted';
-  const rows=[
-    [`Dublin Cash - ${weRef}`],
-    ['Status',status],
-    [],
-    ['Acct','Customer',...headers,'Total']
+  const columns=['Acct','Customer',...headers,'Total (EUR)'];
+  const rawRows=[
+    {cells:['Strathroy Dairy Cash Recs'],style:1},
+    {cells:[`Dublin Cash - ${weRef}`],style:2},
+    {cells:['Period',monthLabel],style:3},
+    {cells:['Filters',`${status}; whole week-ending batch`],style:3},
+    {cells:['Rows',CUSTOMERS.length],style:3},
+    {cells:[]},
+    {cells:columns,style:8,columns}
   ];
   CUSTOMERS.forEach((c,i)=>{
     let rowTotal=0;let hasVal=false;
@@ -3429,20 +3435,22 @@ function exportWEExcel(weRef){
       amts.push(v===null?'':v);
       if(v!==null){rowTotal+=v;hasVal=true;}
     }
-    rows.push([c.acct,c.name,...amts,hasVal?Math.round(rowTotal*100)/100:'']);
+    rawRows.push({cells:[c.acct,c.name,...amts,hasVal?Math.round(rowTotal*100)/100:''],columns});
   });
   const grandTotal=cfg.totals.reduce((s,v)=>s+Number(v||0),0);
   const diffs=cfg.totals.map((_,i)=>((cfg.totals[i]||0)+(cfg.floats[i]||0))-(cfg.officeTotals[i]||0));
-  rows.push([]);
-  rows.push(['Total','',...cfg.totals.map(v=>Number(v||0)),Math.round(grandTotal*100)/100]);
-  rows.push(['Opening float','',...cfg.floats.map(v=>Number(v||0)),'']);
-  rows.push(['Office total','',...cfg.officeTotals.map(v=>Number(v||0)),'']);
-  rows.push(['Diff','',...diffs.map(v=>Math.round(v*100)/100),'']);
-  const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:12},{wch:32},...Array.from({length:lc},()=>({wch:16})),{wch:14}];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,safeExportNamePart(weRef).slice(0,31));
-  XLSX.writeFile(wb,`${safeExportNamePart(weRef)}_dublin_cash.xlsx`);
+  rawRows.push({cells:[]});
+  rawRows.push({cells:['Total','',...cfg.totals.map(v=>Number(v||0)),Math.round(grandTotal*100)/100],columns});
+  rawRows.push({cells:['Opening float','',...cfg.floats.map(v=>Number(v||0)),''],columns});
+  rawRows.push({cells:['Office total','',...cfg.officeTotals.map(v=>Number(v||0)),''],columns});
+  rawRows.push({cells:['Diff','',...diffs.map(v=>Math.round(v*100)/100),''],columns});
+  StrathroyExcelExport.exportStyledReportWorkbook([{
+    name:safeExportNamePart(weRef),
+    rawRows,
+    columns,
+    autoFilterRow:7,
+    freezeRow:7
+  }],`${safeExportNamePart(weRef)}_dublin_cash.xlsx`);
 }
 
 // Inactivity
