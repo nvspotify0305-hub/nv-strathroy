@@ -3351,24 +3351,29 @@ function openPaste(weRef,lodge,label){
   curPasteWE=weRef;curPasteLodge=lodge;
   const pasteTargets = CUSTOMERS.filter(c => String(c && c.acct || '').trim());
   document.getElementById('paste-title').textContent=`Paste Lodg ${lodge} — ${label}`;
-  document.getElementById('paste-sub').textContent=`Copy the Amount column for ${label} from the office sheet. ${pasteTargets.length} values expected.`;
+  document.getElementById('paste-sub').textContent=`Copy the full Amount range for ${label}, from the first customer to the last. Blank cells stay on their customer row and count as zero. ${pasteTargets.length} rows expected.`;
   document.getElementById('paste-ta').value='';
   showModal('pasteModal');
 }
 function applyPaste(){
-  const raw=document.getElementById('paste-ta').value.trim();
+  const raw=document.getElementById('paste-ta').value.replace(/\r\n?/g,'\n');
   if(!raw)return;
-  const lines=raw.split('\n').map(l=>l.trim());
   const weRef=curPasteWE;const lodge=curPasteLodge;
   const pasteTargets = CUSTOMERS
     .map((c,i)=>({ customer:c, index:i }))
     .filter(({ customer }) => String(customer && customer.acct || '').trim());
+  const expectedRows=pasteTargets.length;
+  const lines=raw.split('\n');
+  while(lines.length>expectedRows && lines[lines.length-1].trim()==='')lines.pop();
+  if(lines.length!==expectedRows){
+    alert(`Paste not applied. ${expectedRows} customer rows were expected, but ${lines.length} spreadsheet rows were detected.\n\nSelect the full Amount range from the first customer to the last, including blank cells.`);
+    return;
+  }
   if(!SAMPLE[weRef])SAMPLE[weRef]=[];
   lines.forEach((line,i)=>{
-    if(i>=pasteTargets.length)return;
     const targetIndex = pasteTargets[i].index;
     if(!SAMPLE[weRef][targetIndex])SAMPLE[weRef][targetIndex]=[];
-    const clean=line.replace(/,/g,'');
+    const clean=line.trim().replace(/,/g,'');
     const v=clean===''||clean==='-'?null:/^\([\d.]+\)$/.test(clean)?-parseFloat(clean.slice(1,-1)):parseFloat(clean);
     while(SAMPLE[weRef][targetIndex].length<=lodge-1)SAMPLE[weRef][targetIndex].push(null);
     SAMPLE[weRef][targetIndex][lodge-1]=isNaN(v)?null:v;
