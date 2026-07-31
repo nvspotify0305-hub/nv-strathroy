@@ -5365,10 +5365,10 @@ function sageBoiDisplayDate(value) {
   return normaliseDateToDisplay(value);
 }
 
-function getSageBoiTxnRows(dateKey, refKey='') {
+function getSageBoiTxnRows(dateKey='', refKey='') {
   const refNorm = String(refKey || '').trim().toUpperCase();
   return (sageAllRows || [])
-    .filter(r => r.cls === 'country')
+    .filter(r => r.cls === 'country' || r.cls === 'contra')
     .map((r, idx) => ({
       idx,
       date: sageBoiDisplayDate(r.date),
@@ -5377,7 +5377,7 @@ function getSageBoiTxnRows(dateKey, refKey='') {
       ref: r.ref || '',
       amount: -Number(r.net || 0)
     }))
-    .filter(r => r.date === dateKey && (!refNorm || String(r.ref || '').trim().toUpperCase() === refNorm));
+    .filter(r => (!dateKey || r.date === dateKey) && (!refNorm || String(r.ref || '').trim().toUpperCase() === refNorm));
 }
 
 function getSageBoiGroupsForDates(dateKeys) {
@@ -5404,7 +5404,7 @@ function openSageBoiTxnDrilldown(dateKey, refKey='') {
   const title = document.getElementById('sageBoiTxnTitle');
   const sub = document.getElementById('sageBoiTxnSub');
   const list = document.getElementById('sageBoiTxnList');
-  if (title) title.textContent = `${dateKey}${refKey ? ' / ' + refKey : ''}`;
+  if (title) title.textContent = `${dateKey}${dateKey && refKey ? ' / ' : ''}${refKey}` || 'Sage BOI transactions';
   if (sub) sub.innerHTML = `${rows.length} Sage BOI row${rows.length === 1 ? '' : 's'} · Total <strong>€${money(total)}</strong>`;
   if (list) {
     if (!rows.length) {
@@ -5589,29 +5589,222 @@ function buildDublinReconciliationRows() {
   return reconcileTransactionRows(appRows, [...groupedSage.values()], {timingDays: 3});
 }
 
+function normaliseBoiAtomicReference(value) {
+  const compact = reconKey(value);
+  return compact.replace(/^(PD|PMC)0+(\d)/, '$1$2');
+}
+
+function expandBoiReference(value) {
+  const compact = String(value || '').toUpperCase().replace(/\s+/g, '');
+  const match = /^(PD|PMC)(\d{3,6}(?:-\d{1,6})+)$/.exec(compact);
+  if (!match) return [normaliseBoiAtomicReference(value)].filter(Boolean);
+
+  const prefix = match[1];
+  const parts = match[2].split('-');
+  const firstText = parts[0];
+  const firstNumber = Number(firstText);
+  const expanded = [prefix + firstNumber];
+  let previous = firstNumber;
+
+  parts.slice(1).forEach(part => {
+    const suffixNumber = Number(part);
+    if (!Number.isFinite(suffixNumber)) return;
+    let number;
+    if (part.length >= firstText.length) {
+      number = suffixNumber;
+    } else {
+      const scale = Math.pow(10, part.length);
+      number = Math.floor(previous / scale) * scale + suffixNumber;
+      if (number < previous) number += scale;
+    }
+    expanded.push(prefix + number);
+    previous = number;
+  });
+
+  return [...new Set(expanded.map(normaliseBoiAtomicReference).filter(Boolean))];
+}
+
 function buildCountryReconciliationRows() {
-  const appRows = boiData.filter(row => row.posted).map((row, idx) => ({
-    sourceIdx: boiData.indexOf(row),
-    date: normaliseDateToDisplay(row.date),
-    ref: row.ref || '',
-    acct: row.rep || '',
-    amount: Number(row.amount || 0)
-  }));
+  const appEntries = [];
+  boiData.forEach((row, sourceIdx) => {
+    if (!row.posted) return;
+    const date = normaliseDateToDisplay(row.date);
+    const rawRef = String(row.ref || '').trim();
+    const key = rawRef ? normaliseBoiAtomicReference(rawRef) : `NOREF|${date}`;
+    appEntries.push({
+      key,
+      ref: rawRef || 'No ref',
+      date,
+      rep: String(row.rep || '').trim(),
+      amount: Number(row.amount || 0),
+      sourceIdx,
+      used: false
+    });
+  });
 
-  // BOI app rows are gross. The Summary displays them net of contra, so the
-  // matching side must include Sage country + contra rows to prove the same diff.
-  const sageRows = (sageAllRows || [])
-    .filter(row => row.cls === 'country' || row.cls === 'contra')
-    .map((row, idx) => ({
-      sourceIdx: idx,
-      cls: row.cls,
-      date: sageBoiDisplayDate(row.date),
-      ref: row.ref || '',
-      acct: row.acct || '',
-      amount: -Number(row.net || 0)
-    }));
+  // Sage BOI references are posting groups. A single reference such as
+  // PD2865-6 can contain many customer-account allocation rows; reconcile the
+  // summed reference total, not each allocation row against the bank lodgement.
+  const sageGroupMap = new Map();
+  (sageAllRows || []).forEach((row, sourceIdx) => {
+    if (row.cls !== 'country' && row.cls !== 'contra') return;
+    const date = sageBoiDisplayDate(row.date);
+    const rawRef = String(row.ref || '').trim();
+    const key = rawRef ? reconKey(rawRef) : `NOREF|${date}`;
+    if (!sageGroupMap.has(key)) {
+      sageGroupMap.set(key, {
+        referenceGroup: true,
+        key,
+        ref: rawRef || 'No ref',
+        amount: 0,
+        dates: new Set(),
+        accounts: new Set(),
+        sourceIndexes: [],
+        atomicRefs: rawRef ? expandBoiReference(rawRef) : [`NOREF|${date}`]
+      });
+    }
+    const group = sageGroupMap.get(key);
+    group.amount += -Number(row.net || 0);
+    if (date) group.dates.add(date);
+    if (row.acct) group.accounts.add(String(row.acct).trim());
+    group.sourceIndexes.push(sourceIdx);
+  });
 
-  return reconcileTransactionRows(appRows, sageRows, {timingDays: 3});
+  const sageGroups = [...sageGroupMap.values()];
+
+  // A Sage batch can contain a range reference plus a separate base row, e.g.
+  // PD2865-6 and PD2865. Merge overlapping groups from the same posting date.
+  const absorbedSageKeys = new Set();
+  sageGroups.filter(group => group.atomicRefs.length > 1).forEach(rangeGroup => {
+    sageGroups.forEach(simpleGroup => {
+      if (simpleGroup === rangeGroup || absorbedSageKeys.has(simpleGroup.key) || simpleGroup.atomicRefs.length !== 1) return;
+      const overlapsRef = rangeGroup.atomicRefs.includes(simpleGroup.atomicRefs[0]);
+      const overlapsDate = [...simpleGroup.dates].some(date => rangeGroup.dates.has(date));
+      if (!overlapsRef || !overlapsDate) return;
+      rangeGroup.amount += simpleGroup.amount;
+      simpleGroup.dates.forEach(value => rangeGroup.dates.add(value));
+      simpleGroup.accounts.forEach(value => rangeGroup.accounts.add(value));
+      rangeGroup.sourceIndexes.push(...simpleGroup.sourceIndexes);
+      absorbedSageKeys.add(simpleGroup.key);
+    });
+  });
+
+  const activeSageGroups = sageGroups.filter(group => !absorbedSageKeys.has(group.key)).map(group => ({...group, used: false}));
+  const exceptions = [];
+
+  const makeAppDisplay = entries => {
+    const refs = [...new Set(entries.map(entry => entry.ref).filter(Boolean))];
+    const dates = [...new Set(entries.map(entry => entry.date).filter(Boolean))];
+    const reps = [...new Set(entries.map(entry => entry.rep).filter(Boolean))];
+    const sourceIndexes = [...new Set(entries.map(entry => entry.sourceIdx))];
+    return {
+      referenceGroup: true,
+      ref: refs.join(' + ') || 'No ref',
+      amount: entries.reduce((sum, entry) => sum + entry.amount, 0),
+      date: dates.join(', '),
+      acct: reps.join(', '),
+      componentRefs: refs,
+      sourceIndexes,
+      sourceIdx: sourceIndexes.length === 1 ? sourceIndexes[0] : null
+    };
+  };
+
+  const makeSageDisplay = groups => {
+    const refs = [...new Set(groups.map(group => group.ref).filter(Boolean))];
+    const dates = [...new Set(groups.flatMap(group => [...group.dates]).filter(Boolean))];
+    const sourceIndexes = groups.flatMap(group => group.sourceIndexes);
+    const accounts = new Set(groups.flatMap(group => [...group.accounts]));
+    const shortRef = refs.length <= 3 ? refs.join(' + ') : `${dates.join(', ') || 'BOI'} posting group`;
+    return {
+      referenceGroup: true,
+      ref: shortRef || 'No ref',
+      referenceRefs: refs,
+      amount: groups.reduce((sum, group) => sum + group.amount, 0),
+      date: dates.join(', '),
+      rowCount: sourceIndexes.length,
+      accountCount: accounts.size,
+      sourceIndexes
+    };
+  };
+
+  // Pass 1: combined references are authoritative posting batches.
+  activeSageGroups.filter(group => group.atomicRefs.length > 1).forEach(sageGroup => {
+    const matchedApp = appEntries.filter(entry => !entry.used && sageGroup.atomicRefs.includes(entry.key));
+    if (!matchedApp.length) return;
+    matchedApp.forEach(entry => { entry.used = true; });
+    sageGroup.used = true;
+    const appDisplay = makeAppDisplay(matchedApp);
+    const sageDisplay = makeSageDisplay([sageGroup]);
+    const delta = appDisplay.amount - sageDisplay.amount;
+    if (Math.abs(delta) >= 0.005) exceptions.push({app: appDisplay, sage: sageDisplay, delta, reason: 'Wrong reference total'});
+  });
+
+  // Pass 2: hide simple reference groups when their full totals match, or when
+  // one same-reference app row exactly matches the Sage group amount.
+  activeSageGroups.filter(group => !group.used && group.atomicRefs.length === 1).forEach(sageGroup => {
+    const candidates = appEntries.filter(entry => !entry.used && entry.key === sageGroup.atomicRefs[0]);
+    if (!candidates.length) return;
+    const candidateTotal = candidates.reduce((sum, entry) => sum + entry.amount, 0);
+    if (Math.abs(candidateTotal - sageGroup.amount) < 0.005) {
+      candidates.forEach(entry => { entry.used = true; });
+      sageGroup.used = true;
+      return;
+    }
+    const exactSingle = candidates
+      .filter(entry => Math.abs(entry.amount - sageGroup.amount) < 0.005)
+      .sort((left, right) => reconDateGap(left.date, [...sageGroup.dates][0]) - reconDateGap(right.date, [...sageGroup.dates][0]))[0];
+    if (exactSingle) {
+      exactSingle.used = true;
+      sageGroup.used = true;
+    }
+  });
+
+  const remainingAppByDate = new Map();
+  appEntries.filter(entry => !entry.used).forEach(entry => {
+    if (!remainingAppByDate.has(entry.date)) remainingAppByDate.set(entry.date, []);
+    remainingAppByDate.get(entry.date).push(entry);
+  });
+  const remainingSageByDate = new Map();
+  activeSageGroups.filter(group => !group.used && Math.abs(group.amount) >= 0.005).forEach(group => {
+    const date = [...group.dates][0] || 'No date';
+    if (!remainingSageByDate.has(date)) remainingSageByDate.set(date, []);
+    remainingSageByDate.get(date).push(group);
+  });
+
+  const dateGroups = [...new Set([...remainingAppByDate.keys(), ...remainingSageByDate.keys()])].map(date => {
+    const app = remainingAppByDate.get(date) || [];
+    const sage = remainingSageByDate.get(date) || [];
+    return {
+      date,
+      app,
+      sage,
+      appAmount: app.reduce((sum, entry) => sum + entry.amount, 0),
+      sageAmount: sage.reduce((sum, group) => sum + group.amount, 0),
+      used: false
+    };
+  });
+
+  // Matching date totals disappear. Also absorb an exact total posted up to
+  // three days later so ordinary Sage timing does not create a false exception.
+  dateGroups.forEach(group => {
+    if (Math.abs(group.appAmount - group.sageAmount) < 0.005) group.used = true;
+  });
+  dateGroups.forEach(left => {
+    if (left.used || Math.abs(left.appAmount) < 0.005 || Math.abs(left.sageAmount) >= 0.005) return;
+    const right = dateGroups.find(candidate => !candidate.used && candidate !== left && Math.abs(candidate.appAmount) < 0.005 && Math.abs(candidate.sageAmount - left.appAmount) < 0.005 && reconDateGap(left.date, candidate.date) <= 3);
+    if (right) { left.used = true; right.used = true; }
+  });
+
+  dateGroups.filter(group => !group.used).forEach(group => {
+    const appDisplay = group.app.length ? makeAppDisplay(group.app) : null;
+    const sageDisplay = group.sage.length ? makeSageDisplay(group.sage) : null;
+    const delta = group.appAmount - group.sageAmount;
+    if (Math.abs(delta) < 0.005) return;
+    const reason = appDisplay && sageDisplay ? 'Wrong reference total' : appDisplay ? 'Missing from Sage' : 'Missing from app';
+    exceptions.push({app: appDisplay, sage: sageDisplay, delta, reason});
+  });
+
+  return exceptions.sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta));
 }
 
 function buildDateReconciliationRows(appByDate, sageByDate) {
@@ -5631,6 +5824,20 @@ function reconciliationLocationHtml(type, item) {
     return `<strong>${escapeHtml(title)}</strong>${row.name ? `<div style="color:var(--ink-lt);margin-top:2px;">${escapeHtml(row.name)}</div>` : ''}`;
   }
   if (type === 'country') {
+    if ((item.app && item.app.referenceGroup) || (item.sage && item.sage.referenceGroup)) {
+      const sageGroup = item.sage || {};
+      const appGroup = item.app || {};
+      const title = sageGroup.ref || appGroup.ref || 'No ref';
+      const date = sageGroup.date || appGroup.date || 'No date';
+      const appRefs = Array.isArray(appGroup.componentRefs) ? appGroup.componentRefs.join(' + ') : appGroup.ref || '';
+      const allocationNote = sageGroup.rowCount
+        ? `${sageGroup.rowCount} Sage allocation row${sageGroup.rowCount === 1 ? '' : 's'}${sageGroup.accountCount ? ` / ${sageGroup.accountCount} account${sageGroup.accountCount === 1 ? '' : 's'}` : ''}`
+        : '';
+      return `<strong>${escapeHtml(title)}</strong>
+        <div style="color:var(--ink-lt);margin-top:2px;">${escapeHtml(date)}</div>
+        ${appRefs && reconKey(appRefs) !== reconKey(title) ? `<div style="color:var(--ink-mid);margin-top:3px;font-size:10px;"><strong>App refs:</strong> ${escapeHtml(appRefs)}</div>` : ''}
+        ${allocationNote ? `<div style="color:var(--ink-lt);margin-top:2px;font-size:10px;">${escapeHtml(allocationNote)}</div>` : ''}`;
+    }
     return `<strong>${escapeHtml(row.date || 'No date')}</strong><div style="color:var(--ink-lt);margin-top:2px;">${escapeHtml(row.ref || 'No ref')}${row.acct ? ' · ' + escapeHtml(row.acct) : ''}</div>`;
   }
   return `<strong>${escapeHtml(row.date || 'No date')}</strong>`;
@@ -5652,7 +5859,10 @@ function buildTransactionExceptionHtml(type, exceptions, targetDiff) {
   const proofOk = Math.abs(exceptionTotal - Number(targetDiff || 0)) < 0.011;
 
   if (!exceptions.length) {
-    return `<div class="sum-drill-item" style="background:var(--green-pale);color:var(--green);font-weight:700;">All transaction rows matched after normal posting-date timing.</div>`;
+    const matchedText = type === 'country'
+      ? 'All BOI posting-reference totals matched Sage.'
+      : 'All transaction rows matched after normal posting-date timing.';
+    return `<div class="sum-drill-item" style="background:var(--green-pale);color:var(--green);font-weight:700;">${matchedText}</div>`;
   }
 
   const rows = exceptions.map(item => {
@@ -5661,17 +5871,19 @@ function buildTransactionExceptionHtml(type, exceptions, targetDiff) {
     let action = '';
     if (type === 'dublin' && item.app) {
       action = `<button class="btn btn-ghost btn-xs" onclick="goToDublinReconciliationRow('${reconJsArg(item.app.weRef || item.app.ref)}','${reconJsArg(item.app.acct)}')">Review</button>`;
+    } else if (type === 'country' && item.app && Array.isArray(item.app.sourceIndexes) && item.app.sourceIndexes.length) {
+      action = `<button class="btn btn-ghost btn-xs" onclick="goToBoiReconciliationGroup('${item.app.sourceIndexes.join(',')}')">Review</button>`;
     } else if (type === 'country' && item.app && Number.isInteger(item.app.sourceIdx)) {
       action = `<button class="btn btn-ghost btn-xs" onclick="goToBoiReconciliationRow(${item.app.sourceIdx})">Review</button>`;
     } else if (type === 'country' && item.sage) {
-      action = `<button class="btn btn-ghost btn-xs" onclick="openSageBoiTxnDrilldown('${reconJsArg(item.sage.date)}','${reconJsArg(item.sage.ref)}')">Sage row</button>`;
+      action = `<button class="btn btn-ghost btn-xs" onclick="openSageBoiTxnDrilldown('${item.sage.referenceGroup ? '' : reconJsArg(item.sage.date)}','${reconJsArg(item.sage.ref)}')">Sage rows</button>`;
     }
     return `<tr style="border-top:1px solid var(--border);">
       <td style="padding:8px 9px;min-width:170px;">${reconciliationLocationHtml(type, item)}${reconciliationDetailHtml(type, item)}</td>
       <td class="mono" style="padding:8px 9px;text-align:right;white-space:nowrap;">${appAmount}</td>
       <td class="mono" style="padding:8px 9px;text-align:right;white-space:nowrap;">${sageAmount}</td>
       <td class="mono" style="padding:8px 9px;text-align:right;white-space:nowrap;color:${item.delta < 0 ? 'var(--red)' : 'var(--amber)'};font-weight:700;">${signed(item.delta)}</td>
-      <td style="padding:8px 9px;white-space:nowrap;"><span class="pill ${item.reason === 'Wrong amount' ? 'pill-bank' : 'pill-unposted'}">${escapeHtml(item.reason)}</span></td>
+      <td style="padding:8px 9px;white-space:nowrap;"><span class="pill ${String(item.reason || '').startsWith('Wrong') ? 'pill-bank' : 'pill-unposted'}">${escapeHtml(item.reason)}</span></td>
       <td style="padding:8px 9px;text-align:right;">${action}</td>
     </tr>`;
   }).join('');
@@ -5679,7 +5891,7 @@ function buildTransactionExceptionHtml(type, exceptions, targetDiff) {
   return `<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;margin-top:4px;">
     <table style="width:100%;border-collapse:collapse;font-size:11px;">
       <thead><tr style="background:var(--bg);color:var(--ink-lt);text-transform:uppercase;letter-spacing:.45px;font-size:9px;">
-        <th style="text-align:left;padding:7px 9px;">Exact location / transaction</th>
+        <th style="text-align:left;padding:7px 9px;">${type === 'country' ? 'Posting reference group' : 'Exact location / transaction'}</th>
         <th style="text-align:right;padding:7px 9px;">App</th>
         <th style="text-align:right;padding:7px 9px;">Sage</th>
         <th style="text-align:right;padding:7px 9px;">Diff</th>
@@ -5714,6 +5926,17 @@ function goToBoiReconciliationRow(sourceIdx) {
   document.querySelector('[data-screen=daily]')?.click();
   document.querySelector('[data-daily=boi]')?.click();
   setTimeout(() => highlightReconciliationRow(document.querySelector(`#boi-rows tr[data-idx="${sourceIdx}"]`)), 80);
+}
+
+function goToBoiReconciliationGroup(sourceIndexes) {
+  const indexes = String(sourceIndexes || '').split(',').map(value => Number(value)).filter(Number.isInteger);
+  document.querySelector('[data-screen=daily]')?.click();
+  document.querySelector('[data-daily=boi]')?.click();
+  setTimeout(() => {
+    const rows = indexes.map(index => document.querySelector(`#boi-rows tr[data-idx="${index}"]`)).filter(Boolean);
+    rows.forEach(highlightReconciliationRow);
+    if (rows[0]) rows[0].scrollIntoView({behavior: 'smooth', block: 'center'});
+  }, 80);
 }
 
 function goToDublinReconciliationRow(weRef, acct) {
@@ -5854,7 +6077,7 @@ function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
     drillHtml = buildTransactionExceptionHtml('dublin', buildDublinReconciliationRows(), totalDiff);
 
   } else if (type === 'country') {
-    // BOI: reconcile app transactions against Sage country + contra rows.
+    // BOI: reconcile bank posting references against grouped Sage allocations.
     drillHtml = buildTransactionExceptionHtml('country', buildCountryReconciliationRows(), totalDiff);
   }
 
