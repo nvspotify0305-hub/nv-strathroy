@@ -1747,7 +1747,10 @@ footer{
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <button id="export-backup-btn" class="btn ghost" type="button" style="padding:8px 12px;font-size:12px;border-radius:10px;">Export Backup</button>
       <button id="import-backup-btn" class="btn ghost" type="button" style="padding:8px 12px;font-size:12px;border-radius:10px;">Import Backup</button>
+      <button id="choose-backup-folder-btn" class="btn ghost" type="button" style="padding:8px 12px;font-size:12px;border-radius:10px;">Choose Backup Folder</button>
+      <button id="clear-backup-folder-btn" class="btn ghost" type="button" style="padding:8px 12px;font-size:12px;border-radius:10px;display:none;">Use Downloads</button>
       <input id="backup-import-input" type="file" accept="application/json,.json" style="display:none">
+      <span id="backup-folder-status" style="font-size:11px;color:var(--ink-lt);">Automatic close backups currently use Downloads.</span>
       <span style="font-size:11px;color:var(--ink-lt);">Settings saved to localStorage · per-browser</span>
     </div>
     <span id="settings-saved-indicator" style="font-size:11px;color:var(--green);font-weight:600;opacity:0;transition:opacity .3s;">✓ Saved</span>
@@ -2574,7 +2577,7 @@ document.querySelectorAll('.sub-btn').forEach(btn=>{
 function showModal(id){document.getElementById(id).classList.add('show');}
 function hideModal(id){document.getElementById(id).classList.remove('show');}
 document.querySelectorAll('.modal-ov').forEach(ov=>ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('show');}));
-function confirmClose(){
+async function confirmClose(){
   hideModal('closeModal');
   const key = monthKey();
   const current = ensurePeriodRecord(key, 'open');
@@ -2591,6 +2594,10 @@ function confirmClose(){
   prepareNextPeriodRecord(next, openingBalance, nextRef, openingHsbc);
   savePeriods();
   loadPeriodByKey(nextKey);
+  const backupResult = await automaticBackupSafely({ trigger: 'period-close', periodKey: key });
+  if (!backupResult?.saved) {
+    showStorageWarning('period closed, but the automatic recovery backup could not be created. Use Export Backup before continuing.');
+  }
 }
 function reopenCurrentPeriod(){
   const rec = ensurePeriodRecord(monthKey(), 'closed');
@@ -6596,8 +6603,10 @@ function savePeriod() {
   recalcRec();
 }
 
-function resetAllSettings() {
+async function resetAllSettings() {
   if (!confirm('Reset ALL settings to defaults? Custom rules will be lost.')) return;
+  const backupResult = await automaticBackupSafely({ trigger: 'pre-settings-reset' });
+  if (!backupResult?.saved && !confirm('The current backup could not be created. Continue resetting settings?')) return;
   appSettings = {...SETTINGS_DEFAULTS};
   saveSettings();
   applySettingsToUI();
@@ -6887,14 +6896,18 @@ async function dbLoadHeavy(key) {
 }
 
 const BACKUP_FILE_PREFIX = 'strathroy-cash-rec-backup';
+const BACKUP_DIRECTORY_DB = 'strathroy-cash-rec-backup-directory-v1';
+const BACKUP_DIRECTORY_STORE = 'directory-handles';
+const BACKUP_DIRECTORY_KEY = 'automatic-backup-folder';
+let backupDirectoryHandle = null;
 
-async function exportBackup() {
+async function exportBackup(options = {}) {
   saveSettings();
   persistAll();
   const idb = await openCashRecIdb();
   if (!idb) {
-    alert('Backup export needs IndexedDB to be available for large Cash Recs backups.');
-    return;
+    if (!options.automatic) alert('Backup export needs IndexedDB to be available for large Cash Recs backups.');
+    return { saved: false, destination: 'none' };
   }
   const stamp = new Date();
   const compactPeriods = compactPeriodStoreForStorage(periodStore);
@@ -6925,15 +6938,151 @@ async function exportBackup() {
       periods: compactPeriods
     }
   };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  payload.backupTrigger = options.trigger || (options.automatic ? 'automatic' : 'manual-export');
+  payload.periodKey = options.periodKey || periodStore.currentKey || monthKey();
+  const content = JSON.stringify(payload, null, 2);
   const stampLabel = stamp.toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  const triggerLabel = String(payload.backupTrigger).replace(/[^a-z0-9-]+/gi, '-').replace(/^-+|-+$/g, '');
+  const filename = `${BACKUP_FILE_PREFIX}-${triggerLabel}-${stampLabel}.json`;
+
+  if (options.automatic && backupDirectoryHandle) {
+    try {
+      const permission = await getBackupDirectoryPermission(backupDirectoryHandle, false);
+      if (permission !== 'granted') throw new Error('Backup folder permission is not available.');
+      const fileHandle = await backupDirectoryHandle.getFileHandle(filename, { create: true });
+      const writer = await fileHandle.createWritable();
+      await writer.write(content);
+      await writer.close();
+      renderBackupDirectoryStatus('saved');
+      return { saved: true, destination: 'folder', filename };
+    } catch (_) {
+      renderBackupDirectoryStatus('permission-needed');
+    }
+  }
+
+  downloadBackupContent(filename, content);
+  if (options.automatic) renderBackupDirectoryStatus(backupDirectoryHandle ? 'fallback' : 'downloads');
+  return { saved: true, destination: 'downloads', filename };
+}
+
+async function automaticBackupSafely(options = {}) {
+  try {
+    return await exportBackup({ ...options, automatic: true });
+  } catch (error) {
+    console.error('Automatic Cash Recs backup failed', error);
+    return { saved: false, destination: 'none', error: error?.message || 'Backup failed' };
+  }
+}
+
+function downloadBackupContent(filename, content) {
+  const blob = new Blob([content], { type: 'application/json' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `${BACKUP_FILE_PREFIX}-${stampLabel}.json`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+}
+
+function openBackupDirectoryDb() {
+  return new Promise((resolve, reject) => {
+    if (!('indexedDB' in window)) return reject(new Error('This browser cannot remember a backup folder.'));
+    const request = indexedDB.open(BACKUP_DIRECTORY_DB, 1);
+    request.addEventListener('upgradeneeded', () => {
+      if (!request.result.objectStoreNames.contains(BACKUP_DIRECTORY_STORE)) request.result.createObjectStore(BACKUP_DIRECTORY_STORE);
+    });
+    request.addEventListener('success', () => resolve(request.result));
+    request.addEventListener('error', () => reject(request.error || new Error('Backup folder storage could not be opened.')));
+  });
+}
+
+async function readSavedBackupDirectoryHandle() {
+  const db = await openBackupDirectoryDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(BACKUP_DIRECTORY_STORE, 'readonly');
+    const request = tx.objectStore(BACKUP_DIRECTORY_STORE).get(BACKUP_DIRECTORY_KEY);
+    request.addEventListener('success', () => resolve(request.result || null));
+    request.addEventListener('error', () => reject(request.error));
+    tx.addEventListener('complete', () => db.close());
+    tx.addEventListener('abort', () => db.close());
+  });
+}
+
+async function writeSavedBackupDirectoryHandle(handle) {
+  const db = await openBackupDirectoryDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(BACKUP_DIRECTORY_STORE, 'readwrite');
+    tx.objectStore(BACKUP_DIRECTORY_STORE).put(handle, BACKUP_DIRECTORY_KEY);
+    tx.addEventListener('complete', () => { db.close(); resolve(); });
+    tx.addEventListener('error', () => { db.close(); reject(tx.error); });
+    tx.addEventListener('abort', () => { db.close(); reject(tx.error); });
+  });
+}
+
+async function deleteSavedBackupDirectoryHandle() {
+  const db = await openBackupDirectoryDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(BACKUP_DIRECTORY_STORE, 'readwrite');
+    tx.objectStore(BACKUP_DIRECTORY_STORE).delete(BACKUP_DIRECTORY_KEY);
+    tx.addEventListener('complete', () => { db.close(); resolve(); });
+    tx.addEventListener('error', () => { db.close(); reject(tx.error); });
+    tx.addEventListener('abort', () => { db.close(); reject(tx.error); });
+  });
+}
+
+async function getBackupDirectoryPermission(handle, requestPermission) {
+  if (!handle) return 'denied';
+  if (typeof handle.queryPermission !== 'function') return 'granted';
+  let permission = await handle.queryPermission({ mode: 'readwrite' });
+  if (permission !== 'granted' && requestPermission && typeof handle.requestPermission === 'function') {
+    permission = await handle.requestPermission({ mode: 'readwrite' });
+  }
+  return permission;
+}
+
+async function loadBackupDirectoryPreference() {
+  if (!('showDirectoryPicker' in window)) return renderBackupDirectoryStatus('unsupported');
+  try { backupDirectoryHandle = await readSavedBackupDirectoryHandle(); } catch (_) { backupDirectoryHandle = null; }
+  renderBackupDirectoryStatus();
+}
+
+async function chooseBackupDirectory() {
+  if (!('showDirectoryPicker' in window)) {
+    alert('Choose Backup Folder needs current Microsoft Edge or Google Chrome. Automatic backups will continue to use Downloads.');
+    return renderBackupDirectoryStatus('unsupported');
+  }
+  try {
+    const handle = await window.showDirectoryPicker({ id: 'strathroy-cash-rec-backups', mode: 'readwrite', startIn: 'documents' });
+    if (await getBackupDirectoryPermission(handle, true) !== 'granted') throw new Error('Write permission was not granted.');
+    await writeSavedBackupDirectoryHandle(handle);
+    backupDirectoryHandle = handle;
+    renderBackupDirectoryStatus('selected');
+  } catch (error) {
+    if (error?.name !== 'AbortError') alert(`${error?.message || 'The backup folder could not be selected.'}\n\nAutomatic backups will continue to use Downloads.`);
+  }
+}
+
+async function clearBackupDirectoryPreference() {
+  try { await deleteSavedBackupDirectoryHandle(); } catch (_) {}
+  backupDirectoryHandle = null;
+  renderBackupDirectoryStatus();
+}
+
+function renderBackupDirectoryStatus(mode = '') {
+  const status = document.getElementById('backup-folder-status');
+  const choose = document.getElementById('choose-backup-folder-btn');
+  const clear = document.getElementById('clear-backup-folder-btn');
+  if (!status || !choose || !clear) return;
+  const supported = 'showDirectoryPicker' in window;
+  choose.textContent = backupDirectoryHandle ? 'Change Backup Folder' : 'Choose Backup Folder';
+  clear.style.display = backupDirectoryHandle ? '' : 'none';
+  status.style.color = mode === 'permission-needed' || mode === 'fallback' || mode === 'unsupported' ? 'var(--amber)' : 'var(--ink-lt)';
+  if (!supported || mode === 'unsupported') status.textContent = 'Chosen-folder saving is unavailable; automatic backups use Downloads.';
+  else if (!backupDirectoryHandle) status.textContent = 'Automatic close backups currently use Downloads.';
+  else if (mode === 'saved') status.textContent = `Recovery backup saved automatically in ${backupDirectoryHandle.name}.`;
+  else if (mode === 'permission-needed' || mode === 'fallback') status.textContent = `Access to ${backupDirectoryHandle.name} is unavailable; this backup used Downloads.`;
+  else status.textContent = `Automatic close backups will be saved in ${backupDirectoryHandle.name}.`;
 }
 
 function triggerBackupImport() {
@@ -6960,6 +7109,8 @@ function importBackupFromFile(file) {
       }
       const exportedAt = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : 'Unknown time';
       if (!confirm(`Import backup from ${exportedAt}? This will clear and replace all saved Cash Recs data on this machine.`)) return;
+      const safetyBackup = await automaticBackupSafely({ trigger: 'pre-restore' });
+      if (!safetyBackup?.saved && !confirm('The current state could not be backed up. Continue with the restore?')) return;
       const compactPeriods = payload.data.periods ? compactPeriodStoreForStorage(expandPeriodStoreFromStorage(payload.data.periods)) : payload.data.periods;
       const compactSageRows = payload.data.sageAllRows ? compactSageRowsForStorage(expandSageRowsFromStorage(payload.data.sageAllRows)) : payload.data.sageAllRows;
       clearCashRecLocalStorage();
@@ -7176,6 +7327,8 @@ function initPeriodState() {
 // ══ INIT ══
 document.getElementById('export-backup-btn')?.addEventListener('click', exportBackup);
 document.getElementById('import-backup-btn')?.addEventListener('click', triggerBackupImport);
+document.getElementById('choose-backup-folder-btn')?.addEventListener('click', chooseBackupDirectory);
+document.getElementById('clear-backup-folder-btn')?.addEventListener('click', clearBackupDirectoryPreference);
 document.getElementById('backup-import-input')?.addEventListener('change', (event) => {
   importBackupFromFile(event.target.files && event.target.files[0]);
 });
@@ -7202,6 +7355,7 @@ let recPersistTimer = null;
 
 async function initApp() {
   await openCashRecIdb();
+  await loadBackupDirectoryPreference();
   loadSettings();
   await loadPersistedData();
   initBOI();
