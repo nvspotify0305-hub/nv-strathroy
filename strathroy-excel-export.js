@@ -189,8 +189,8 @@
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <numFmts count="4">
-    <numFmt numFmtId="164" formatCode="&quot;EUR&quot; #,##0.00;[Red]-&quot;EUR&quot; #,##0.00"/>
-    <numFmt numFmtId="165" formatCode="&quot;EUR&quot; #,##0.0000;[Red]-&quot;EUR&quot; #,##0.0000"/>
+    <numFmt numFmtId="164" formatCode="_(* #,##0.00_);[Red]_(* (#,##0.00);_(* &quot;-&quot;??_);_(@_)"/>
+    <numFmt numFmtId="165" formatCode="_(* #,##0.0000_);[Red]_(* (#,##0.0000);_(* &quot;-&quot;????_);_(@_)"/>
     <numFmt numFmtId="166" formatCode="#,##0.00"/>
     <numFmt numFmtId="167" formatCode="0.00%"/>
   </numFmts>
