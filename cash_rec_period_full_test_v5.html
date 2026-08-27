@@ -3117,6 +3117,7 @@ function buildDCBlocks(){
       ${dateHtml.replace('span class="we-date"','span class="we-date" id="date-'+weRef+'"')}
       <div style="display:flex;gap:5px;margin-left:8px;">
         <button class="btn btn-ghost btn-xs" onclick="toggleAllLodge('${weRef}')" id="toggleAll-${weRef}">Hide lodgements</button>
+        ${!cfg.posted?`<button class="btn btn-ghost btn-xs" onclick="addLodgeCol('${weRef}')">+ Add lodgement</button>`:''}
         <button class="btn btn-ghost btn-xs" onclick="exportWEExcel('${weRef}')">Excel Export</button>
         <button class="btn btn-ghost btn-xs" onclick="exportWE('${weRef}',true)">Sage CSV</button>
         ${!cfg.posted?`<button class="btn btn-xs" style="background:var(--red);color:#fff;border:none;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:11px;" onclick="deleteWEBatch('${weRef}')">✕ Delete</button>`:''}
@@ -3155,6 +3156,30 @@ function deleteWEBatch(weRef){
   if(!confirm('Delete WE batch '+weRef+'? This will remove all lodgement data. Cannot be undone.'))return;
   delete WE_CONFIG[weRef];
   delete SAMPLE[weRef];
+  persistAll();
+  buildDCBlocks();
+  renderDailySummary();
+}
+
+function addLodgeCol(weRef){
+  const cfg=WE_CONFIG[weRef];
+  if(!cfg)return;
+  if(cfg.posted){alert('Unpost this batch before adding a lodgement.');return;}
+  const lodgeIdx=cfg.labels.length;
+  cfg.labels.push(`Lodgement ${lodgeIdx+1}`);
+  ['dates','totals','floats','officeTotals'].forEach(key=>{
+    if(!Array.isArray(cfg[key]))cfg[key]=Array(lodgeIdx).fill(key==='dates'?'':0);
+    cfg[key].push(key==='dates'?'':0);
+  });
+  if(!Array.isArray(SAMPLE[weRef]))SAMPLE[weRef]=[];
+  const rowCount=Math.max(SAMPLE[weRef].length,CUSTOMERS.length);
+  for(let i=0;i<rowCount;i++){
+    const row=Array.isArray(SAMPLE[weRef][i])?SAMPLE[weRef][i]:[];
+    while(row.length<lodgeIdx)row.push(null);
+    row[lodgeIdx]=null;
+    SAMPLE[weRef][i]=row;
+  }
+  delete hiddenCols[weRef+'-'+(lodgeIdx+1)];
   persistAll();
   buildDCBlocks();
   renderDailySummary();
