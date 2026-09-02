@@ -1381,7 +1381,7 @@ footer{
           <button class="btn" onclick="exportDebtorsRec()" style="font-size:12px;padding:5px 14px;">↓ Export XLSX</button>
         </div>
         <div style="padding:10px 18px 14px;">
-          <button class="btn btn-green w-full" onclick="showModal('closeModal')" style="padding:10px;font-size:13px;">✓ Confirm &amp; Close Month</button>
+          <button class="btn btn-green w-full" onclick="showModal('closeModal')" style="padding:10px;font-size:13px;">✓ Review &amp; Close Month</button>
         </div>
       </div>
     </div>
@@ -1416,7 +1416,7 @@ footer{
 <div class="modal-ov" id="closeModal">
   <div class="modal">
     <div class="modal-title" id="closeModal-title">Close March 2026?</div>
-    <div class="modal-body" id="closeModal-body">Month locked and read-only. Closing balance carries to April as opening balance.</div>
+    <div class="modal-body" id="closeModal-body">Month locked and read-only. Closing balance carries to April as opening balance. An automatic recovery backup is created after confirmation.</div>
     <div class="modal-detail" id="closeModal-detail">
       <div class="modal-dr"><span class="modal-dl">Debtors diff</span><span class="modal-dv" id="closeModal-diff" style="color:var(--green);">€0.00 ✓</span></div>
       <div class="modal-dr"><span class="modal-dl">Closing balance</span><span class="modal-dv" id="closeModal-closing">€4,994,236.67</span></div>
@@ -2578,7 +2578,7 @@ function showModal(id){document.getElementById(id).classList.add('show');}
 function hideModal(id){document.getElementById(id).classList.remove('show');}
 document.querySelectorAll('.modal-ov').forEach(ov=>ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('show');}));
 async function confirmClose(){
-  const backupReady = await prepareAutomaticBackupForClose();
+  const backupReady = await prepareAutomaticBackupForPeriodChange('closing the month');
   if (!backupReady) return;
   hideModal('closeModal');
   const key = monthKey();
@@ -2599,16 +2599,29 @@ async function confirmClose(){
   const backupResult = await automaticBackupSafely({ trigger: 'period-close', periodKey: key });
   if (!backupResult?.saved) {
     showStorageWarning('period closed, but the automatic recovery backup could not be created. Use Export Backup before continuing.');
+    alert('The month was closed, but its automatic recovery backup failed. Use Export Backup before continuing.');
+    return;
   }
+  showAutomaticBackupSuccess('Month closed', backupResult);
 }
-function reopenCurrentPeriod(){
-  const rec = ensurePeriodRecord(monthKey(), 'closed');
+async function reopenCurrentPeriod(){
+  const key = monthKey();
+  const backupReady = await prepareAutomaticBackupForPeriodChange('reopening the month');
+  if (!backupReady) return;
+  const backupResult = await automaticBackupSafely({ trigger: 'period-reopen', periodKey: key });
+  if (!backupResult?.saved) {
+    showStorageWarning('month remains closed because the automatic recovery backup could not be created.');
+    alert('The automatic recovery backup failed. The month remains closed. Check the backup folder and try Reopen again.');
+    return;
+  }
+  const rec = ensurePeriodRecord(key, 'closed');
   rec.status = 'open';
   rec.closedAt = null;
   rec.snapshot = captureLiveSnapshot();
   rec.summary = computeMonthSummary();
   savePeriods();
   refreshMonthDisplay();
+  showAutomaticBackupSuccess('Month reopened', backupResult);
 }
 
 // ══ BOI ROWS ══
@@ -7068,22 +7081,29 @@ async function getBackupDirectoryPermission(handle, requestPermission) {
   return handle.queryPermission({ mode: 'readwrite' });
 }
 
-async function prepareAutomaticBackupForClose() {
+async function prepareAutomaticBackupForPeriodChange(actionLabel) {
   if (!backupDirectoryHandle) return true;
   try {
     const permission = await getBackupDirectoryPermission(backupDirectoryHandle, true);
     if (permission !== 'granted') {
       renderBackupDirectoryStatus('permission-needed');
-      alert(`Cash Recs needs access to ${backupDirectoryHandle.name} before closing the month.\n\nThe month has not been closed. Grant access and press Confirm Close again.`);
+      alert(`Cash Recs needs access to ${backupDirectoryHandle.name} before ${actionLabel}.\n\nNo period change was made. Grant access and try again.`);
       return false;
     }
     renderBackupDirectoryStatus();
     return true;
   } catch (error) {
     renderBackupDirectoryStatus('permission-needed');
-    alert(`${error?.message || 'The chosen backup folder is unavailable.'}\n\nThe month has not been closed. Check the folder or choose it again in Settings.`);
+    alert(`${error?.message || 'The chosen backup folder is unavailable.'}\n\nNo period change was made. Check the folder or choose it again in Settings.`);
     return false;
   }
+}
+
+function showAutomaticBackupSuccess(actionLabel, backupResult) {
+  const destination = backupResult?.destination === 'folder' && backupDirectoryHandle
+    ? backupDirectoryHandle.name
+    : 'Downloads';
+  alert(`${actionLabel}.\n\nBackup saved automatically in ${destination}:\n${backupResult.filename}`);
 }
 
 async function loadBackupDirectoryPreference() {
