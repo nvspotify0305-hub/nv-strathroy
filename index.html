@@ -2582,6 +2582,8 @@ function showModal(id){document.getElementById(id).classList.add('show');}
 function hideModal(id){document.getElementById(id).classList.remove('show');}
 document.querySelectorAll('.modal-ov').forEach(ov=>ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('show');}));
 async function confirmClose(){
+  const backupReady = await prepareAutomaticBackupForClose();
+  if (!backupReady) return;
   hideModal('closeModal');
   const key = monthKey();
   const current = ensurePeriodRecord(key, 'open');
@@ -6984,8 +6986,9 @@ async function exportBackup(options = {}) {
       await writer.close();
       renderBackupDirectoryStatus('saved');
       return { saved: true, destination: 'folder', filename };
-    } catch (_) {
+    } catch (error) {
       renderBackupDirectoryStatus('permission-needed');
+      return { saved: false, destination: 'none', filename, error: error?.message || 'The chosen backup folder could not be written.' };
     }
   }
 
@@ -7063,11 +7066,28 @@ async function deleteSavedBackupDirectoryHandle() {
 async function getBackupDirectoryPermission(handle, requestPermission) {
   if (!handle) return 'denied';
   if (typeof handle.queryPermission !== 'function') return 'granted';
-  let permission = await handle.queryPermission({ mode: 'readwrite' });
-  if (permission !== 'granted' && requestPermission && typeof handle.requestPermission === 'function') {
-    permission = await handle.requestPermission({ mode: 'readwrite' });
+  if (requestPermission && typeof handle.requestPermission === 'function') {
+    return handle.requestPermission({ mode: 'readwrite' });
   }
-  return permission;
+  return handle.queryPermission({ mode: 'readwrite' });
+}
+
+async function prepareAutomaticBackupForClose() {
+  if (!backupDirectoryHandle) return true;
+  try {
+    const permission = await getBackupDirectoryPermission(backupDirectoryHandle, true);
+    if (permission !== 'granted') {
+      renderBackupDirectoryStatus('permission-needed');
+      alert(`Cash Recs needs access to ${backupDirectoryHandle.name} before closing the month.\n\nThe month has not been closed. Grant access and press Confirm Close again.`);
+      return false;
+    }
+    renderBackupDirectoryStatus();
+    return true;
+  } catch (error) {
+    renderBackupDirectoryStatus('permission-needed');
+    alert(`${error?.message || 'The chosen backup folder is unavailable.'}\n\nThe month has not been closed. Check the folder or choose it again in Settings.`);
+    return false;
+  }
 }
 
 async function loadBackupDirectoryPreference() {
