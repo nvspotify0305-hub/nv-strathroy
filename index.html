@@ -3006,7 +3006,8 @@ function exportCTAll(){
     day.rows.forEach(r=>rows.push([day.date,r.narr,r.amt.toFixed(2),day.total.toFixed(2),day.count]));
     rows.push(['','','','','']);
   });
-  dlCSV(rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n'),'CT_Mar2026_All.csv');
+  const exportPeriod=monthLabelFor().replace(/\s+/g,'');
+  dlCSV(rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n'),`CT_${exportPeriod}_All.csv`);
 }
 
 function dlCSV(csv,filename){
@@ -4637,6 +4638,7 @@ function confirmMultiDayDD(){
 function exportXLSX(type){
   if(typeof XLSX==='undefined'){alert('SheetJS not loaded — check internet connection.');return;}
   let wb,ws,filename;
+  const exportPeriod=monthLabelFor().replace(/\s+/g,'');
   if(type==='boi'){
     const rows=[['Date','Ref / Narrative','Agent','Amount','Status']];
     boiData.forEach(r=>rows.push([r.date,r.ref||'',r.rep||'',r.amount,r.posted?'Posted':'Bank only']));
@@ -4645,7 +4647,7 @@ function exportXLSX(type){
     ws=XLSX.utils.aoa_to_sheet(rows);
     ws['!cols']=[{wch:12},{wch:30},{wch:12},{wch:14},{wch:12}];
     wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'BOI Cash');
-    filename='CountryCash_Mar2026.xlsx';
+    filename=`CountryCash_${exportPeriod}.xlsx`;
   } else if(type==='dd'){
     const rows=[['Date','Amount','Ref','Status']];
     ddData.forEach(r=>rows.push([r.date,r.amount,r.ref||'',r._confirmed?'Hit bank':'Pending']));
@@ -4654,7 +4656,7 @@ function exportXLSX(type){
     ws=XLSX.utils.aoa_to_sheet(rows);
     ws['!cols']=[{wch:12},{wch:14},{wch:12},{wch:12}];
     wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Direct Debits');
-    filename='DD_Mar2026.xlsx';
+    filename=`DD_${exportPeriod}.xlsx`;
   } else if(type==='ct'){
     const rows=[['Date','Narrative','Amount','Day Total','Tx Count']];
     ctDays.forEach(day=>{
@@ -4665,7 +4667,7 @@ function exportXLSX(type){
     ws=XLSX.utils.aoa_to_sheet(rows);
     ws['!cols']=[{wch:14},{wch:60},{wch:14},{wch:14},{wch:10}];
     wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'CT');
-    filename='CT_Mar2026.xlsx';
+    filename=`CT_${exportPeriod}.xlsx`;
   } else if(type==='dublin'){
     exportDublinCash();
     return;
