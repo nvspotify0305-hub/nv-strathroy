@@ -6251,7 +6251,7 @@ function renderSageReferenceCorrections() {
   const query=String(document.getElementById('sage-reference-search')?.value || '').trim().toLowerCase();
   const matches=sageAllRows.map((r,i)=>({r,i})).filter(({r})=>query ? [r.ref,r._originalRef,r.acct].some(v=>String(v || '').toLowerCase().includes(query)) : r.cls==='rb' || r.cls==='unclassified' || r._originalRef != null);
   el.innerHTML='<table class="rec-tbl"><thead><tr><th>Date / Account</th><th>Reference</th><th>Amount</th><th></th></tr></thead><tbody>'+matches.slice(0,100).map(({r,i})=>
-    '<tr><td>'+escapeHtml(toDisplayDate(r.date))+'<br>'+escapeHtml(r.acct)+' · '+escapeHtml(r.type)+'</td><td>'+escapeHtml(r.ref)+(r._originalRef != null ? '<br><small>Original: '+escapeHtml(r._originalRef)+'</small>' : '')+'</td><td>€'+(-r.net).toFixed(2)+'</td><td><button class="btn btn-ghost btn-xs" onclick="editSageReference('+i+')">Edit</button>'+(r._originalRef != null ? ' <button class="btn btn-ghost btn-xs" onclick="editSageReference('+i+',true)">Undo</button>' : '')+'</td></tr>'
+    '<tr><td>'+escapeHtml(sageBoiDisplayDate(r.date))+'<br>'+escapeHtml(r.acct)+' · '+escapeHtml(r.type)+'</td><td>'+escapeHtml(r.ref)+(r._originalRef != null ? '<br><small>Original: '+escapeHtml(r._originalRef)+'</small>' : '')+'</td><td>€'+(-r.net).toFixed(2)+'</td><td><button class="btn btn-ghost btn-xs" onclick="editSageReference('+i+')">Edit</button>'+(r._originalRef != null ? ' <button class="btn btn-ghost btn-xs" onclick="editSageReference('+i+',true)">Undo</button>' : '')+'</td></tr>'
   ).join('')+'</tbody></table>'+(matches.length ? (matches.length>100 ? '<p>Showing first 100 matches. Narrow your search.</p>' : '') : '<p>No matching transactions. Search a reference or account to find another entry.</p>');
 }
 
