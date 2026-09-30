@@ -1268,8 +1268,8 @@ input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0.5;cursor:poi
           ondrop="event.preventDefault();this.style.borderColor='';this.style.background='';handleSageDrop(event.dataTransfer.files)">
           <div style="font-size:28px;margin-bottom:8px;">📂</div>
           <div style="font-size:13px;font-weight:500;color:var(--ink-mid);margin-bottom:4px;">Drop Sage All export here</div>
-          <div style="font-size:11px;color:var(--ink-lt);">Excel .xlsx · Account, Type, Ref, Date, NetValue — click or drag</div>
-          <input type="file" id="sage-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleSageFile(this.files)">
+          <div style="font-size:11px;color:var(--ink-lt);">Sage CSV (SR/SP only) or Excel .xlsx — click or drag</div>
+          <input type="file" id="sage-file-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleSageFile(this.files)">
         </div>
 
         <!-- Upload log — one entry per upload -->
@@ -5111,16 +5111,57 @@ function fmtShortDate(d) {
 function handleSageDrop(files) { if (files && files[0]) processSageFile(files[0]); }
 function handleSageFile(files) { if (files && files[0]) processSageFile(files[0]); }
 
+function readSageTransactionsCsv(buffer) {
+  // Sage Sales Ledger Transactions for Export: no header, ten fixed fields.
+  // Account, Type, Ref, Details, Date, NetValue, Tax, ..., ... , ...
+  // Keep the first record and preserve account/reference text, including leading zeros.
+  const text = new TextDecoder('utf-8').decode(buffer).replace(/^\uFEFF/, '');
+  const wb = XLSX.read(text, { type: 'string', raw: true, FS: ',' });
+  const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {
+    header: 1, defval: '', blankrows: false, raw: true
+  });
+  const rows = [];
+  let skipped = 0;
+  data.forEach((r, i) => {
+    if (r.length !== 10 || !String(r[0]).trim() ||
+        !/^[A-Z]{2}$/.test(String(r[1]).trim().toUpperCase()) ||
+        !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(r[4]).trim())) {
+      throw new Error(`CSV row ${i + 1}: expected the ten-column Sage Sales Ledger Transactions for Export report without headings.`);
+    }
+    const type = String(r[1]).trim().toUpperCase();
+    if (type !== 'SR' && type !== 'SP') { skipped++; return; }
+    const value = String(r[5]).trim();
+    const dateText = String(r[4]).trim();
+    const date = parseSageDate(dateText);
+    const parts = dateText.split('/').map(Number);
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value) || !Number.isFinite(Number(value)) ||
+        !date || date.getDate() !== parts[0] || date.getMonth() + 1 !== parts[1] || date.getFullYear() !== parts[2]) {
+      throw new Error(`CSV row ${i + 1}: invalid receipt/payment date or net amount. Nothing imported.`);
+    }
+    rows.push({ Account: String(r[0]).trim(), Type: type, Ref: String(r[2]).trim(),
+      Date: dateText, NetValue: Number(value) });
+  });
+  return { rows, skipped };
+}
+
 function processSageFile(file) {
   if (typeof XLSX === 'undefined') { alert('SheetJS not loaded — check connection.'); return; }
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
       const sessionId = Date.now() + Math.floor(Math.random() * 1000);
-      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      if (!raw.length) { alert('No data found in file.'); return; }
+      const isCsv = /\.csv$/i.test(file.name);
+      let raw, skippedRowCount = 0;
+      if (isCsv) {
+        const result = readSageTransactionsCsv(e.target.result);
+        raw = result.rows;
+        skippedRowCount = result.skipped;
+      } else {
+        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      }
+      if (!raw.length) { alert(isCsv ? 'No SR receipts or SP payments found. Nothing imported.' : 'No data found in file.'); return; }
 
       const sample = raw[0];
       const keys = Object.keys(sample);
@@ -5178,6 +5219,7 @@ function processSageFile(file) {
         uploadedAt: new Date(),
         dateMin, dateMax,
         rowCount: rows.length,
+        skippedRowCount,
         id: sessionId
       };
       sageUploads.push(session);
@@ -5242,7 +5284,7 @@ function renderSageImport() {
       <div class="sage-upload-entry">
         <div class="sue-file">📄 ${s.filename}</div>
         <div class="sue-range">${fmtShortDate(s.dateMin)} → ${fmtShortDate(s.dateMax)}</div>
-        <div class="sue-rows">${s.rowCount} rows</div>
+        <div class="sue-rows">${s.rowCount} rows${s.skippedRowCount ? ` · ${s.skippedRowCount} excluded (not SR/SP)` : ''}</div>
         <button class="btn btn-danger btn-xs sue-clear" onclick="clearSageUpload(${s.id})">✕ Clear</button>
       </div>`).join('');
   }
