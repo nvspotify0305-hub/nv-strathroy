@@ -1319,6 +1319,13 @@ input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0.5;cursor:poi
             <div id="sage-unc-status" style="margin-left:auto;font-size:11px;color:var(--green);font-weight:600;">✓ Clean</div>
           </div>
         </div>
+
+      <details id="sage-reference-panel" style="margin:12px 0;">
+        <summary class="btn btn-ghost btn-sm" onclick="renderSageReferenceCorrections()">Correct Sage reference</summary>
+        <p style="font-size:11px;color:var(--ink-lt);margin:10px 0;">Edit one imported transaction. Its amount stays unchanged. Corrections are saved in this app.</p>
+        <input id="sage-reference-search" class="inp" placeholder="Search reference or account" oninput="renderSageReferenceCorrections()" style="width:100%;margin-bottom:8px;">
+        <div id="sage-reference-rows" style="max-height:320px;overflow:auto;"></div>
+      </details>
       </div>
     </div>
     <div class="card">
@@ -1879,7 +1886,7 @@ function deepClone(v){
   return JSON.parse(JSON.stringify(v));
 }
 const SAGE_ROWS_COMPACT_FORMAT = 'sageRowsCompactV1';
-const SAGE_ROW_COMPACT_COLS = ['ref','type','acct','net','date','cls','_srcFile','_rowIdx','_sessionId'];
+const SAGE_ROW_COMPACT_COLS = ['ref','type','acct','net','date','cls','_srcFile','_rowIdx','_sessionId','_originalRef'];
 
 function serialiseSageRowDate(value){
   if(!value) return null;
@@ -1901,7 +1908,8 @@ function compactSageRowsForStorage(rows){
       r && r.cls || '',
       r && r._srcFile || '',
       r && r._rowIdx != null ? r._rowIdx : null,
-      r && r._sessionId != null ? r._sessionId : null
+      r && r._sessionId != null ? r._sessionId : null,
+      r && r._originalRef != null ? r._originalRef : null
     ])
   };
 }
@@ -1918,7 +1926,8 @@ function expandSageRowsFromStorage(value){
     cls: row[5] || '',
     _srcFile: row[6] || '',
     _rowIdx: row[7] != null ? row[7] : null,
-    _sessionId: row[8] != null ? row[8] : null
+    _sessionId: row[8] != null ? row[8] : null,
+    ...(row[9] != null ? {_originalRef: row[9]} : {})
   }));
 }
 
@@ -5190,6 +5199,8 @@ function processSageFile(file) {
         rows.push({ ref, type, acct, net, date, cls, _srcFile: file.name, _rowIdx: i, _sessionId: sessionId });
       });
 
+      preserveSageReferenceCorrections(rows);
+
       // Date range for this upload
       const dates = rows.map(r => r.date).filter(Boolean);
       const dateMin = dates.length ? new Date(Math.min(...dates.map(d => d.getTime()))) : null;
@@ -5268,6 +5279,7 @@ function resetAllSageData() {
 
 
 function renderSageImport() {
+  renderSageReferenceCorrections();
   // Render upload log
   const logWrap = document.getElementById('sage-upload-log');
   const logEntries = document.getElementById('sage-upload-entries');
@@ -6203,6 +6215,44 @@ function renderSummaryDrillDown(type, appTotal, sageTotal, isLive) {
   el.innerHTML = hd + drillHtml;
   el.style.display = '';
   if (parentRow) parentRow.style.display = '';
+}
+
+
+function sageCorrectionIdentity(row, ref) {
+  return JSON.stringify([row._srcFile,row._rowIdx,row.acct,row.type,row.net,serialiseSageRowDate(row.date),ref]);
+}
+function preserveSageReferenceCorrections(rows) {
+  const saved = new Map(sageAllRows.filter(r => r._originalRef != null).map(r => [sageCorrectionIdentity(r,r._originalRef),r.ref]));
+  rows.forEach(r => {
+    const replacement = saved.get(sageCorrectionIdentity(r,r.ref));
+    if(replacement !== undefined) { r._originalRef=r.ref; r.ref=replacement; r.cls=classifySageRef(r.ref,r.type,r.net); }
+  });
+}
+function setSageReferenceCorrection(row, replacement) {
+  const ref=String(replacement || '').trim();
+  if(!ref) throw new Error('Enter a reference.');
+  if(row._originalRef == null) row._originalRef=row.ref;
+  row.ref=ref;
+  row.cls=classifySageRef(ref,row.type,row.net);
+  if(row.ref === row._originalRef) delete row._originalRef;
+}
+function editSageReference(index, undo=false) {
+  const row=sageAllRows[index];
+  if(!row) return;
+  const next=undo ? row._originalRef : prompt('Correct reference for '+row.acct+' · '+toDisplayDate(row.date)+' · '+row.type+' · €'+(-row.net).toFixed(2)+'\nOriginal: '+(row._originalRef ?? row.ref),row.ref);
+  if(next == null) return;
+  try { setSageReferenceCorrection(row,next); } catch(e) { alert(e.message); return; }
+  renderSageImport();
+  persistAll();
+}
+function renderSageReferenceCorrections() {
+  const el=document.getElementById('sage-reference-rows');
+  if(!el) return;
+  const query=String(document.getElementById('sage-reference-search')?.value || '').trim().toLowerCase();
+  const matches=sageAllRows.map((r,i)=>({r,i})).filter(({r})=>query ? [r.ref,r._originalRef,r.acct].some(v=>String(v || '').toLowerCase().includes(query)) : r.cls==='rb' || r.cls==='unclassified' || r._originalRef != null);
+  el.innerHTML='<table class="rec-tbl"><thead><tr><th>Date / Account</th><th>Reference</th><th>Amount</th><th></th></tr></thead><tbody>'+matches.slice(0,100).map(({r,i})=>
+    '<tr><td>'+escapeHtml(toDisplayDate(r.date))+'<br>'+escapeHtml(r.acct)+' · '+escapeHtml(r.type)+'</td><td>'+escapeHtml(r.ref)+(r._originalRef != null ? '<br><small>Original: '+escapeHtml(r._originalRef)+'</small>' : '')+'</td><td>€'+(-r.net).toFixed(2)+'</td><td><button class="btn btn-ghost btn-xs" onclick="editSageReference('+i+')">Edit</button>'+(r._originalRef != null ? ' <button class="btn btn-ghost btn-xs" onclick="editSageReference('+i+',true)">Undo</button>' : '')+'</td></tr>'
+  ).join('')+'</tbody></table>'+(matches.length ? (matches.length>100 ? '<p>Showing first 100 matches. Narrow your search.</p>' : '') : '<p>No matching transactions. Search a reference or account to find another entry.</p>');
 }
 
 function releaseUncRow(i) {
