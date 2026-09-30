@@ -6239,7 +6239,7 @@ function setSageReferenceCorrection(row, replacement) {
 function editSageReference(index, undo=false) {
   const row=sageAllRows[index];
   if(!row) return;
-  const next=undo ? row._originalRef : prompt('Correct reference for '+row.acct+' · '+toDisplayDate(row.date)+' · '+row.type+' · €'+(-row.net).toFixed(2)+'\nOriginal: '+(row._originalRef ?? row.ref),row.ref);
+  const next=undo ? row._originalRef : prompt('Correct reference for '+row.acct+' · '+sageBoiDisplayDate(row.date)+' · '+row.type+' · €'+(-row.net).toFixed(2)+'\nOriginal: '+(row._originalRef ?? row.ref),row.ref);
   if(next == null) return;
   try { setSageReferenceCorrection(row,next); } catch(e) { alert(e.message); return; }
   renderSageImport();
