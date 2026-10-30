@@ -3737,7 +3737,10 @@ function resetSageDerivedUI() {
   });
   setText('sage-unc-status', 'No Sage file loaded');
   const uncPanel = document.getElementById('sage-unclassified-panel');
-  if (uncPanel) uncPanel.innerHTML = '';
+  if (uncPanel) uncPanel.style.display = 'none';
+  const uncList = document.getElementById('sage-unclassified-list');
+  if (uncList) uncList.innerHTML = '';
+  window._uncRows = [];
   setText('rec-ct-sage', '0.00');
   setText('rec-dd-sage', '0.00');
   setText('rec-disc-sage', '0.00');
