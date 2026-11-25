@@ -4768,8 +4768,9 @@ function stageBoiPaste(raw){
     if(!Number.isFinite(amount)){errors.push(`Row ${i+1}: invalid amount.`);return;}
     if(summary){
       if(!rep || !ref || !/^(SR|SP)$/i.test(parts[2])){errors.push(`Row ${i+1}: expected Account, SR/SP Type and Ref from the Summary export.`);return;}
-      const parsed=parsePeriodDate(date), short=/^(\d{1,2})\s+[A-Za-z]{3,9}(?:\s+\d{2,4})?$/.exec(date);
-      if(!short || !parsed || parsed.getDate()!==Number(short[1]) || !isCurrentPeriodDate(date)){
+      const numeric=/^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(date), short=/^(\d{1,2})\s+[A-Za-z]{3,9}(?:\s+\d{2,4})?$/.exec(date);
+      const parsed=numeric?new Date(Number(numeric[3]),Number(numeric[2])-1,Number(numeric[1])):parsePeriodDate(date);
+      if((!short&&!numeric)||!parsed||parsed.getDate()!==Number((numeric||short)[1])||(numeric&&(parsed.getMonth()+1!==Number(numeric[2])||parsed.getFullYear()!==Number(numeric[3])))||!isCurrentPeriodDate(parsed)){
         errors.push(`Row ${i+1}: date must be valid and belong to the selected month.`);return;
       }
     }
